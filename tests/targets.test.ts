@@ -52,3 +52,17 @@ describe('resolveTargets', () => {
     expect(resolveTargets(join(FIXTURES, 'app'), 'chrome 130').source).toBe('override')
   })
 })
+
+describe('browsers that cannot be judged', () => {
+  it('separates browsers that will never support a feature from engine derivatives', () => {
+    const targets = resolveTargets(FIXTURES, 'ie 11, samsung 27, chrome 145')
+
+    expect(targets.legacy).toEqual(['ie 11'])
+    expect(targets.derivative).toEqual(['samsung'])
+    expect(targets.minimums.chrome).toBe('145')
+  })
+
+  it('records versions it cannot parse instead of dropping them', () => {
+    expect(resolveTargets(FIXTURES, 'safari TP, chrome 145').unknownVersions).toEqual(['safari TP'])
+  })
+})

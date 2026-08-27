@@ -31,8 +31,14 @@ export function render({ targets, project, data, coverage, assumed, findings }: 
     : `bundled slice (${data.version}) — install web-features for live data`
   write(pc.dim(`data: ${dataLabel}`))
 
-  if (targets.ignored.length) {
-    write(pc.dim(`not judged: ${targets.ignored.join(', ')} — outside the Baseline core browser set`))
+  if (targets.legacy.length) {
+    write(pc.red(`${targets.legacy.join(', ')} will never support these features — nothing can be dropped`))
+  }
+  if (targets.derivative.length) {
+    write(pc.dim(`unverified for ${targets.derivative.join(', ')} — engine derivatives web-features does not cover`))
+  }
+  if (targets.unknownVersions.length) {
+    write(pc.dim(`no version to judge: ${targets.unknownVersions.join(', ')} — left out`))
   }
 
   // No browserslist means every verdict rests on a guess. Make the guess visible
@@ -122,7 +128,13 @@ export function render({ targets, project, data, coverage, assumed, findings }: 
   write(pc.dim(scope))
   write(pc.dim(advisory))
 
-  const worst = topBlocker(findings)
+  // A legacy browser in the query outranks any version gap: it is why nothing
+  // can be dropped, and naming a Firefox version instead would send the reader
+  // after the wrong thing.
+  const worst = targets.legacy.length
+    ? { key: targets.legacy.join(', '), count: findings.filter((f) => f.verdict === 'not-yet').length }
+    : topBlocker(findings)
+
   if (worst) {
     write()
     write(pc.yellow(`Biggest blocker: ${pc.bold(worst.key)} — ${worst.count} finding${worst.count > 1 ? 's' : ''}`))

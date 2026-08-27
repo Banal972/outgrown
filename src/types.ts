@@ -15,6 +15,10 @@ export interface Targets {
   minimums: Minimums
   /** browserslist entries outside the Baseline core set, excluded from judgement. */
   ignored: string[]
+  /** Of those, the ones that will never support modern features (ie, op_mini …). */
+  legacy: string[]
+  /** Of those, engine derivatives whose lag is unknown (samsung, opera …). */
+  derivative: string[]
   /** Entries whose version could not be parsed (e.g. "safari TP"). */
   unknownVersions: string[]
   source: 'override' | 'project' | 'default'

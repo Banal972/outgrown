@@ -12,6 +12,12 @@ const CORE: Record<string, BrowserKey> = {
   ios_saf: 'safari_ios',
 }
 
+/**
+ * Browsers that will never get modern platform features. If one of these is in
+ * the query, a feature is genuinely unavailable — not merely unverified.
+ */
+const LEGACY = new Set(['ie', 'ie_mob', 'op_mini', 'bb', 'kaios', 'baidu'])
+
 /** "16.0-16.3" · "26.1" · "TP" → the version to judge against, or null. */
 function lowestVersion(raw: string): string | null {
   const first = raw.split('-')[0]?.trim() ?? ''
@@ -29,13 +35,21 @@ export function resolveTargets(cwd: string, override?: string): Targets {
 
   const minimums: Minimums = {}
   const ignored = new Set<string>()
+  const legacy = new Set<string>()
+  const derivative = new Set<string>()
   const unknownVersions: string[] = []
 
   for (const entry of raw) {
     const [id, version] = entry.split(' ')
     const key = id ? CORE[id] : undefined
     if (!key) {
-      if (id) ignored.add(id)
+      if (!id) continue
+      ignored.add(id)
+      // Everything else is an engine derivative or simply unknown to
+      // web-features: enough to withhold a DROP, not enough to call a feature
+      // unsupported.
+      if (LEGACY.has(id)) legacy.add(entry)
+      else derivative.add(id)
       continue
     }
     const parsed = version ? lowestVersion(version) : null
@@ -50,6 +64,8 @@ export function resolveTargets(cwd: string, override?: string): Targets {
   return {
     minimums,
     ignored: [...ignored],
+    legacy: [...legacy],
+    derivative: [...derivative],
     unknownVersions,
     source: override ? 'override' : browserslist.findConfig(cwd) ? 'project' : 'default',
     raw,

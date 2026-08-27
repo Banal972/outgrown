@@ -21,6 +21,17 @@ const ORDER: Record<Verdict, number> = { drop: 0, check: 1, 'not-yet': 2 }
  */
 export async function analyze(root: string, options: AnalyzeOptions = {}): Promise<Report> {
   const targets = resolveTargets(root, options.targets)
+
+  // With nothing judgeable left, every requirement would pass vacuously and the
+  // whole report would read DROP. Refuse instead.
+  if (!Object.keys(targets.minimums).length) {
+    throw new Error(
+      'no judgeable browsers in these targets' +
+        (targets.ignored.length ? ` (only ${targets.ignored.join(', ')})` : '') +
+        '. web-features covers the Baseline core browsers; give it at least one of those.',
+    )
+  }
+
   const manifest = readManifest(root)
 
   const declared = new Set([
@@ -54,6 +65,18 @@ export async function analyze(root: string, options: AnalyzeOptions = {}): Promi
         verdict = inspection.verdict
         note = inspection.note
         sites = inspection.sites
+
+        if (targets.legacy.length) {
+          // These browsers never get the feature, so it is unsupported here — not
+          // merely unverified.
+          verdict = 'not-yet'
+          note = `${targets.legacy.join(', ')} will never support this`
+        } else if (targets.derivative.length && verdict === 'drop') {
+          // Engine derivatives trail by an unknown amount and web-features has no
+          // data for them. Not enough to say no; too much to say yes.
+          verdict = 'check'
+          note = `${note} Unverified for ${targets.derivative.join(', ')}, which web-features does not cover.`
+        }
       } else {
         verdict = 'not-yet'
         note = describeBlockers(support)
