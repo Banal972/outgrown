@@ -1,0 +1,2 @@
+{ "name": "fixture-no-browserslist", "private": true,
+  "dependencies": { "urlpattern-polyfill": "^10", "whatwg-fetch": "^3" } }

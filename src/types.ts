@@ -131,6 +131,15 @@ export interface Report {
   data: { source: FeatureResolver['source']; version: string }
   /** What was looked for. A clean report means nothing outside this was checked. */
   coverage: { rules: number; packages: number }
+  /**
+   * Set only when the project has no browserslist of its own: what a real target
+   * would open up, so the fallback is visibly a guess rather than a policy.
+   */
+  assumed?: {
+    /** The target furthest behind its own latest release — usually the giveaway. */
+    oldest: string
+    alternatives: { query: string; floor: string; wouldOpen: number }[]
+  }
   findings: Finding[]
 }
 

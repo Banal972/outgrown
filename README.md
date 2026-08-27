@@ -54,6 +54,35 @@ Which also means verdicts change over time without you touching a line of code. 
 
 Sizes are measured, not estimated: the package is bundled with esbuild, minified and gzipped.
 
+## If your project has no browserslist
+
+Plenty do not, and it matters here more than anywhere: without a browserslist there
+is no answer to "who do you still support", and every verdict rests on a guess.
+
+browserslist has its own defaults, and `outgrown` uses them — the same ones your
+bundler and autoprefixer already use, so at least the guess is consistent with your
+build. But they are market-share based, which produces odd shapes: today they still
+carry **chrome 109** (the last version for Windows 7/8) alongside a very recent
+Safari. So `outgrown` says so before showing any verdict:
+
+```
+This project has no browserslist, so these are browserslist's own defaults
+— still carrying chrome 109. That is a guess, not your policy.
+
+  Pick a policy and the verdicts change with it:
+  "baseline widely available"
+      chrome 121, firefox 123, safari 17.2 — no change here
+  "baseline newly available"
+      chrome 148, firefox 154, safari 26.5 — 3 more open
+
+  Set it in package.json "browserslist", or try one with --targets.
+```
+
+Two queries rather than one recommendation, because picking a support policy is a
+trade: *widely available* means 30+ months of support in every core browser,
+*newly available* means whatever the slowest browser shipped most recently. The
+numbers next to each are what that choice is worth **in this project**.
+
 ## What outgrown is not
 
 **It does not check every package you depend on.** It checks a curated set — 317

@@ -3,7 +3,7 @@ import { readManifest, scanProject } from './scan.js'
 import { measure } from './size.js'
 import { createResolver, evaluate } from './support.js'
 import { resolveTargets } from './targets.js'
-import type { AnalyzeOptions, Finding, Report, Support, Verdict } from './types.js'
+import type { AnalyzeOptions, FeatureResolver, Finding, Report, Support, Targets, Verdict } from './types.js'
 
 export type * from './types.js'
 export { resolveTargets } from './targets.js'
@@ -79,16 +79,87 @@ export async function analyze(root: string, options: AnalyzeOptions = {}): Promi
 
   findings.sort((a, b) => ORDER[a.verdict] - ORDER[b.verdict] || a.pkg.localeCompare(b.pkg))
 
+  const assumed =
+    targets.source === 'default' ? measureAssumption(root, findings, targets, resolver) : undefined
+
   return {
     targets,
     project: { fileCount: project.fileCount, ...(manifest?.name ? { name: manifest.name } : {}) },
     data: { source: resolver.source, version: resolver.version },
+    ...(assumed ? { assumed } : {}),
     coverage: {
       rules: rules.length,
       packages: new Set(rules.flatMap((rule) => rule.packages)).size,
     },
     findings,
   }
+}
+
+/**
+ * Two queries browserslist understands, deliberately not one.
+ *
+ * Picking a support policy is a trade, and showing both ends of it is more honest
+ * than recommending a number: "widely available" is 30+ months of support in every
+ * core browser, "newly available" is however new the slowest browser is today.
+ */
+const ALTERNATIVES = ['baseline widely available', 'baseline newly available'] as const
+
+/**
+ * Without a browserslist, the fallback is browserslist's own defaults — which
+ * still carry chrome 109, the last version for Windows 7/8. Re-judging the
+ * blocked findings against a real modern target turns that from an invisible
+ * assumption into a number.
+ */
+function measureAssumption(
+  root: string,
+  findings: Finding[],
+  targets: Targets,
+  resolver: FeatureResolver,
+) {
+  const blocked = findings.filter((finding) => finding.verdict === 'not-yet')
+
+  // "Oldest" only means something within one browser — chrome 109 and safari 18
+  // are not comparable numbers. Measure each against its own latest release and
+  // take the one furthest behind.
+  const latest = resolveTargets(root, 'last 1 version').minimums
+  let oldest = ''
+  let widestGap = 0
+  for (const [browser, version] of Object.entries(targets.minimums)) {
+    const current = latest[browser as keyof typeof latest]
+    if (!current) continue
+    const gap = Number(current.split('.')[0]) - Number(version.split('.')[0])
+    if (gap > widestGap) {
+      widestGap = gap
+      oldest = `${browser} ${version}`
+    }
+  }
+
+  const alternatives = []
+
+  for (const query of ALTERNATIVES) {
+    let resolved
+    try {
+      resolved = resolveTargets(root, query)
+    } catch {
+      continue
+    }
+
+    const wouldOpen = blocked.filter((finding) => {
+      const rule = rules.find((candidate) => candidate.id === finding.rule)
+      if (!rule) return false
+      const requirements = rule.requirementsFor?.(finding.pkg) ?? rule.requirements ?? []
+      return evaluate(requirements, resolved.minimums, resolver).supported
+    }).length
+
+    const floor = (['chrome', 'firefox', 'safari'] as const)
+      .map((browser) => (resolved.minimums[browser] ? `${browser} ${resolved.minimums[browser]}` : null))
+      .filter(Boolean)
+      .join(', ')
+
+    alternatives.push({ query, floor, wouldOpen })
+  }
+
+  return { oldest, alternatives }
 }
 
 function describeBlockers({ blockers, missing }: Support): string {

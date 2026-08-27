@@ -132,3 +132,43 @@ describe('coverage disclosure', () => {
     expect(output).toContain('run your tests')
   })
 })
+
+describe('projects with no browserslist', () => {
+  const NO_CONFIG = join(FIXTURES, 'no-browserslist')
+
+  it('falls back to browserslist defaults and says so', async () => {
+    const report = await analyze(NO_CONFIG, { measure: false })
+    expect(report.targets.source).toBe('default')
+    expect(report.assumed).toBeDefined()
+  })
+
+  // browserslist defaults are market-share based, so they still carry chrome 109
+  // — the last version for Windows 7/8. Left unsaid, every verdict rests on it.
+  it('names the target furthest behind its own latest release', async () => {
+    const report = await analyze(NO_CONFIG, { measure: false })
+    expect(report.assumed?.oldest).toMatch(/^chrome \d+/)
+  })
+
+  it('offers both ends of the policy trade, with what each opens', async () => {
+    const report = await analyze(NO_CONFIG, { measure: false })
+    const queries = report.assumed?.alternatives.map((a) => a.query)
+
+    expect(queries).toEqual(['baseline widely available', 'baseline newly available'])
+    for (const alternative of report.assumed?.alternatives ?? []) {
+      expect(alternative.floor).toContain('chrome')
+      expect(alternative.wouldOpen).toBeGreaterThanOrEqual(0)
+    }
+  })
+
+  it('warns before the verdicts, not after', async () => {
+    const output = render(await analyze(NO_CONFIG, { measure: false }))
+    expect(output).toContain('This project has no browserslist')
+    expect(output).toContain('a guess, not your policy')
+    expect(output.indexOf('no browserslist')).toBeLessThan(output.indexOf('DROP'))
+  })
+
+  it('says nothing about assumptions when the project has its own config', async () => {
+    const report = await analyze(APP, { measure: false })
+    expect(report.assumed).toBeUndefined()
+  })
+})

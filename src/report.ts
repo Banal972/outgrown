@@ -14,7 +14,7 @@ const SOURCE_LABEL = {
   default: 'defaults',
 } as const
 
-export function render({ targets, project, data, coverage, findings }: Report): string {
+export function render({ targets, project, data, coverage, assumed, findings }: Report): string {
   const lines: string[] = []
   const write = (line = '') => lines.push(line)
 
@@ -33,6 +33,29 @@ export function render({ targets, project, data, coverage, findings }: Report): 
 
   if (targets.ignored.length) {
     write(pc.dim(`not judged: ${targets.ignored.join(', ')} — outside the Baseline core browser set`))
+  }
+
+  // No browserslist means every verdict rests on a guess. Make the guess visible
+  // before the verdicts, not after.
+  if (assumed) {
+    write()
+    write(pc.yellow('This project has no browserslist, so these are browserslist\'s own defaults'))
+    write(
+      assumed.oldest
+        ? pc.yellow(`— still carrying ${pc.bold(assumed.oldest)}. That is a guess, not your policy.`)
+        : pc.yellow('— a guess, not your policy.'),
+    )
+    if (assumed.alternatives.length) {
+      write()
+      write(pc.dim('  Pick a policy and the verdicts change with it:'))
+      for (const alternative of assumed.alternatives) {
+        const opens = alternative.wouldOpen > 0 ? `${alternative.wouldOpen} more open` : 'no change here'
+        write(`  ${pc.bold(`"${alternative.query}"`)}`)
+        write(pc.dim(`      ${alternative.floor} — ${opens}`))
+      }
+      write()
+      write(pc.dim('  Set it in package.json "browserslist", or try one with --targets.'))
+    }
   }
 
   // Two things a reader can get wrong on their own: assuming a clean report means
