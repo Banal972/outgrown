@@ -53,17 +53,28 @@ describe('floating-ui', () => {
     const result = inspect('floating-ui', '@floating-ui/react', usageOf({
       'Tooltip.tsx': `useFloating({ placement: 'top', middleware: [offset(8), flip(), shift()] })`,
     }))
-    expect(result.verdict).toBe('drop')
+    expect(result?.verdict).toBe('drop')
   })
 
   it.each([
     ['size() middleware', `useFloating({ middleware: [size({ apply() {} })] })`],
     ['virtual element', `const ref = { getBoundingClientRect: () => rect }`],
     ['autoUpdate', `autoUpdate(reference, floating, update)`],
-  ])('flags %s for review', (_label, source) => {
-    const result = inspect('floating-ui', '@floating-ui/react', usageOf({ 'a.tsx': source }))
-    expect(result.verdict).toBe('check')
-    expect(result.sites).toEqual(['a.tsx'])
+  ])('flags %s for review when other files could still move', (_label, source) => {
+    const result = inspect('floating-ui', '@floating-ui/react', usageOf({
+      'a.tsx': source,
+      'b.tsx': `useFloating({ placement: 'top' })`,
+    }))
+    expect(result?.verdict).toBe('check')
+    expect(result?.sites).toEqual(['a.tsx'])
+  })
+
+  // Advice nobody can act on is noise, and noise is how a linter loses its reader.
+  it('says nothing when every usage is beyond CSS', () => {
+    const result = inspect('floating-ui', '@floating-ui/react', usageOf({
+      'a.tsx': `useFloating({ middleware: [size({ apply() {} })] })`,
+    }))
+    expect(result).toBeNull()
   })
 })
 
@@ -72,15 +83,28 @@ describe('enter-exit', () => {
     const result = inspect('enter-exit', 'framer-motion', usageOf({
       'Fade.tsx': `<AnimatePresence><motion.div initial={{ opacity: 0 }} exit={{ opacity: 0 }} /></AnimatePresence>`,
     }))
-    expect(result.verdict).toBe('drop')
+    expect(result?.verdict).toBe('drop')
   })
 
   it.each([
     ['layoutId', `<motion.img layoutId="hero" />`],
     ['motion values', `const y = useTransform(scrollY, [0, 1], [0, 100])`],
     ['variants', `<motion.li variants={item} />`],
-  ])('flags %s for review', (_label, source) => {
-    expect(inspect('enter-exit', 'framer-motion', usageOf({ 'a.tsx': source })).verdict).toBe('check')
+  ])('flags %s for review when other files only fade', (_label, source) => {
+    const result = inspect('enter-exit', 'framer-motion', usageOf({
+      'a.tsx': source,
+      'Fade.tsx': `<motion.div exit={{ opacity: 0 }} />`,
+    }))
+    expect(result?.verdict).toBe('check')
+  })
+
+  // An animation library doing animation work is not a finding.
+  it('says nothing when every file needs more than CSS', () => {
+    const result = inspect('enter-exit', 'framer-motion', usageOf({
+      'Gallery.tsx': `<motion.img layoutId="hero" />`,
+      'Drag.tsx': `<motion.div drag />`,
+    }))
+    expect(result).toBeNull()
   })
 
   it('names the file to look at', () => {
@@ -88,25 +112,25 @@ describe('enter-exit', () => {
       'Fade.tsx': `<motion.div exit={{ opacity: 0 }} />`,
       'Gallery.tsx': `<motion.img layoutId="hero" />`,
     }))
-    expect(result.sites).toEqual(['Gallery.tsx'])
+    expect(result?.sites).toEqual(['Gallery.tsx'])
   })
 })
 
 describe('polyfills', () => {
   it('always drops — the replacement is nothing at all', () => {
     const result = inspect('polyfills', 'whatwg-fetch', usageOf({ 'boot.ts': `import 'whatwg-fetch'` }))
-    expect(result.verdict).toBe('drop')
-    expect(result.note).toContain('window.fetch')
+    expect(result?.verdict).toBe('drop')
+    expect(result?.note).toContain('window.fetch')
   })
 })
 
 describe('dialog', () => {
   it('asks for review rather than deleting markup automatically', () => {
-    expect(inspect('dialog', 'react-modal', usageOf({ 'a.tsx': '' })).verdict).toBe('check')
+    expect(inspect('dialog', 'react-modal', usageOf({ 'a.tsx': '' }))?.verdict).toBe('check')
   })
 
   it('tells helper packages they are covered by <dialog> itself', () => {
     const result = inspect('dialog', 'focus-trap-react', usageOf({ 'a.tsx': '' }))
-    expect(result.note).toContain('focus trapping')
+    expect(result?.note).toContain('focus trapping')
   })
 })

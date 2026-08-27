@@ -97,7 +97,8 @@ export interface Rule {
   docsFor?: (pkg: string) => string | undefined
   replacement?: string
   replacementFor?: (pkg: string) => string
-  inspect: (context: { pkg: string; usage: PackageUsage; project: Project }) => Inspection
+  /** Returns null when the package is doing work the platform still cannot do. */
+  inspect: (context: { pkg: string; usage: PackageUsage; project: Project }) => Inspection | null
 }
 
 export interface Size {

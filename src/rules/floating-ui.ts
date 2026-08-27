@@ -38,15 +38,20 @@ const rule: Rule = {
       }
     }
 
-    if (hits.length) {
-      return {
-        verdict: 'check',
-        note: `Some usage does not map to CSS: ${[...new Set(hits.map((h) => h.why))].join(' · ')}`,
-        sites: [...new Set(hits.map((h) => h.file))],
-      }
+    if (!hits.length) {
+      return { verdict: 'drop', note: 'Only placement, flipping and offsets are used. This maps to CSS as-is.' }
     }
 
-    return { verdict: 'drop', note: 'Only placement, flipping and offsets are used. This maps to CSS as-is.' }
+    const blocked = new Set(hits.map((h) => h.file))
+
+    // Nothing here could move to CSS, so there is no advice worth giving.
+    if (usage.files.size > 0 && blocked.size === usage.files.size) return null
+
+    return {
+      verdict: 'check',
+      note: `Some usage does not map to CSS: ${[...new Set(hits.map((h) => h.why))].join(' · ')}`,
+      sites: [...blocked],
+    }
   },
 }
 

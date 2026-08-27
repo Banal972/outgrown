@@ -48,6 +48,9 @@ export async function analyze(root: string, options: AnalyzeOptions = {}): Promi
       if (support.supported) {
         const seen = usage ?? { files: new Map(), specifiers: new Set<string>() }
         const inspection = rule.inspect({ pkg, usage: seen, project })
+        // Nothing to say: the feature exists, but this project uses the library
+        // for things the platform still cannot do.
+        if (!inspection) continue
         verdict = inspection.verdict
         note = inspection.note
         sites = inspection.sites

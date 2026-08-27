@@ -34,15 +34,22 @@ const rule: Rule = {
       }
     }
 
-    if (found.size) {
-      return {
-        verdict: 'check',
-        note: `Uses features CSS cannot express: ${[...found.keys()].join(' · ')}`,
-        sites: [...new Set([...found.values()].flat())],
-      }
+    if (!found.size) {
+      return { verdict: 'drop', note: 'Only enter and exit transitions are used. Two lines of CSS replace this.' }
     }
 
-    return { verdict: 'drop', note: 'Only enter and exit transitions are used. Two lines of CSS replace this.' }
+    const blocked = new Set([...found.values()].flat())
+
+    // Every file needs something CSS cannot express — layout animations, gestures,
+    // motion values. The library is earning its weight; saying anything here would
+    // just be noise.
+    if (usage.files.size > 0 && blocked.size === usage.files.size) return null
+
+    return {
+      verdict: 'check',
+      note: `Some usage goes beyond CSS: ${[...found.keys()].join(' · ')}`,
+      sites: [...blocked],
+    }
   },
 }
 
