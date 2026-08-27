@@ -15,13 +15,37 @@ const EXTENSIONS = new Set([
  * Three separate patterns on purpose. Folding them into one alternation lets a
  * side-effect import (`import 'whatwg-fetch'`) swallow the line below it.
  */
-const PATTERNS: { re: RegExp; clause: number | null; source: number }[] = [
-  { re: /import\s+([^'";]+?)\s+from\s*['"]([^'"]+)['"]/g, clause: 1, source: 2 },
-  { re: /import\s*['"]([^'"]+)['"]/g, clause: null, source: 1 },
-  { re: /(?:require|import)\s*\(\s*['"]([^'"]+)['"]\s*\)/g, clause: null, source: 1 },
+interface Pattern {
+  re: RegExp
+  clause: number | null
+  source: number
+  /** `call` matches may or may not bind a name; the rest are unambiguous. */
+  form: 'binds' | 'side-effect' | 'call'
+}
+
+const PATTERNS: Pattern[] = [
+  { re: /import\s+([^'";]+?)\s+from\s*['"]([^'"]+)['"]/g, clause: 1, source: 2, form: 'binds' },
+  { re: /import\s*['"]([^'"]+)['"]/g, clause: null, source: 1, form: 'side-effect' },
+  // `const RO = require('x')` and `const { a } = await import('x')` do bind names,
+  // and those names have to survive deleting the import.
+  {
+    re: /(?:const|let|var)\s+(\{[^}]*\}|[\w$]+)\s*=\s*(?:await\s+)?(?:require|import)\s*\(\s*['"]([^'"]+)['"]\s*\)/g,
+    clause: 1,
+    source: 2,
+    form: 'binds',
+  },
+  { re: /(?:require|import)\s*\(\s*['"]([^'"]+)['"]\s*\)/g, clause: null, source: 1, form: 'call' },
   // Re-exports pull the package in just as an import does.
-  { re: /export\s+(\*(?:\s+as\s+[\w$]+)?|\{[^}]*\})\s+from\s*['"]([^'"]+)['"]/g, clause: 1, source: 2 },
+  { re: /export\s+(\*(?:\s+as\s+[\w$]+)?|\{[^}]*\})\s+from\s*['"]([^'"]+)['"]/g, clause: 1, source: 2, form: 'binds' },
 ]
+
+/** A call at statement level binds nothing; anywhere else it might. */
+function isStatementLevel(text: string, at: number): boolean {
+  let index = at - 1
+  while (index >= 0 && /\s/.test(text[index] ?? '')) index--
+  if (index < 0) return true
+  return [';', '{', '}', ')'].includes(text[index] ?? '')
+}
 
 function walk(dir: string, out: string[]): string[] {
   let entries
@@ -101,10 +125,16 @@ export function scanProject(root: string): Project {
       continue
     }
 
-    for (const { re, clause, source } of PATTERNS) {
+    // Ranges already claimed by a binding form, so the bare-call pattern does not
+    // report the same require twice.
+    const claimed: [number, number][] = []
+
+    for (const { re, clause, source, form } of PATTERNS) {
       re.lastIndex = 0
       let match: RegExpExecArray | null
       while ((match = re.exec(text))) {
+        if (form === 'call' && claimed.some(([from, to]) => match!.index >= from && match!.index < to)) continue
+        if (form === 'binds') claimed.push([match.index, match.index + match[0].length])
         const specifier = match[source]
         if (!specifier) continue
         const pkg = packageOf(specifier)
@@ -112,9 +142,13 @@ export function scanProject(root: string): Project {
 
         let record = usage.get(pkg)
         if (!record) {
-          record = { files: new Map(), specifiers: new Set(), bindings: new Set() }
+          record = { files: new Map(), specifiers: new Set(), bindings: new Set(), opaque: false }
           usage.set(pkg, record)
         }
+
+        // A call that is not a statement on its own may be feeding a name we
+        // cannot see — `foo(require('x'))`, `await import('x')`.
+        if (form === 'call' && !isStatementLevel(text, match.index)) record.opaque = true
 
         const rel = relative(root, file)
         let fileUsage = record.files.get(rel)

@@ -41,6 +41,7 @@ export function resolveTargets(cwd: string, override?: string): Targets {
   const derivative = new Set<string>()
   const unknownVersions: string[] = []
   const aheadOfStable: string[] = []
+  const previews: { entry: string; key: BrowserKey }[] = []
 
   for (const entry of raw) {
     const [id, version] = entry.split(' ')
@@ -57,14 +58,21 @@ export function resolveTargets(cwd: string, override?: string): Targets {
     }
     const parsed = version ? lowestVersion(version) : null
     if (parsed === null) {
-      // Safari Technology Preview is strictly ahead of stable Safari, so leaving
-      // it out constrains nothing. Anything else unparseable is a real unknown.
-      if (/^TP$/i.test(version ?? '')) aheadOfStable.push(entry)
+      // Technology Preview runs ahead of stable — but that only makes it
+      // redundant when a stable version of the same browser is also in the query.
+      // On its own it is the only thing constraining Safari, and skipping it would
+      // leave Safari unjudged. Sorted out below, once the minimums are known.
+      if (/^TP$/i.test(version ?? '')) previews.push({ entry, key })
       else unknownVersions.push(entry)
       continue
     }
     const current = minimums[key]
     if (!current || compareVersions(parsed, current) < 0) minimums[key] = parsed
+  }
+
+  for (const preview of previews) {
+    if (minimums[preview.key]) aheadOfStable.push(preview.entry)
+    else unknownVersions.push(preview.entry)
   }
 
   return {

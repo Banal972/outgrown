@@ -5,11 +5,13 @@ function usageOf(
   files: Record<string, string>,
   specifiers: string[] = [],
   bindings: string[] = specifiers,
+  opaque = false,
 ): PackageUsage {
   return {
     files: new Map(Object.entries(files).map(([name, text]) => [name, { lines: [1], text }])),
     specifiers: new Set(specifiers),
     bindings: new Set(bindings),
+    opaque,
   }
 }
 
@@ -208,6 +210,17 @@ describe('polyfills — bindings and packages that cannot be judged', () => {
 })
 
 describe('imports the scanner cannot see into', () => {
+  // `foo(require('x'))` may be feeding a name that has to survive the deletion.
+  it('stops a polyfill at check when the binding cannot be read', () => {
+    const result = inspect(
+      'polyfills',
+      'resize-observer-polyfill',
+      usageOf({ 'a.js': `register(require('resize-observer-polyfill'))` }, [], [], true),
+    )
+    expect(result?.verdict).toBe('check')
+    expect(result?.note).toContain('binding cannot be read')
+  })
+
   // require() and dynamic import() carry no specifiers. An empty set is the
   // absence of evidence, not evidence that every import is covered.
   it('does not read "no specifiers" as "all specifiers are safe"', () => {

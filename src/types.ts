@@ -80,6 +80,12 @@ export interface PackageUsage {
    * survive deleting the import, so safety checks read this and not `specifiers`.
    */
   bindings: Set<string>
+  /**
+   * True when the package arrives in a form whose bindings cannot be read —
+   * `foo(require('x'))`, `await import('x')`. Not knowing what a name is bound to
+   * is not the same as knowing nothing is.
+   */
+  opaque: boolean
 }
 
 export interface Project {

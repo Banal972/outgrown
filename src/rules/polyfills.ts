@@ -108,6 +108,13 @@ const rule: Rule = {
       return { verdict: 'check', note: `${to} covers most of this. ${entry.conservative}` }
     }
 
+    if (usage.opaque) {
+      return {
+        verdict: 'check',
+        note: `${to} is available in every target browser, but this is pulled in where the binding cannot be read — check the call sites yourself.`,
+      }
+    }
+
     // A used binding only survives deletion when the global answers to the same
     // name. What matters is the *local* name — `{ ResizeObserver as RO }` leaves
     // `RO` behind, which no global answers to.

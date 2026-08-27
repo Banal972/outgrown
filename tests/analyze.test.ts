@@ -213,9 +213,16 @@ describe('unjudgeable targets', () => {
     expect(withUnknown.findings.some((f) => f.verdict === 'drop')).toBe(false)
   })
 
-  it('lets safari TP through, since it is ahead of stable', async () => {
+  it('lets safari TP through when a stable Safari is judged alongside it', async () => {
     const report = await analyze(R1, { measure: false, targets: 'safari TP, chrome 145, firefox 152, safari 26.2' })
     expect(report.findings.some((f) => f.verdict === 'drop')).toBe(true)
+  })
+
+  // Without a stable Safari, TP is the only thing constraining Safari — skipping
+  // it would judge Safari not at all.
+  it('withholds drop when a preview is the only version of its browser', async () => {
+    const report = await analyze(R1, { measure: false, targets: 'safari TP, chrome 145, firefox 152' })
+    expect(report.findings.some((f) => f.verdict === 'drop')).toBe(false)
   })
 
   // Samsung Internet trails Chrome by an unknown amount and web-features has no

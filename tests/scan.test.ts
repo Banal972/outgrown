@@ -89,3 +89,21 @@ describe('aliased imports', () => {
     expect([...(usage?.bindings ?? [])]).toEqual(['RO'])
   })
 })
+
+describe('require and dynamic import', () => {
+  const project = scanProject(join(FIXTURES, 'cjs'))
+
+  it('captures the name a require is assigned to', () => {
+    expect([...(project.usage.get('resize-observer-polyfill')?.bindings ?? [])]).toEqual(['RO'])
+  })
+
+  it('leaves a bare require unflagged — it binds nothing', () => {
+    expect(project.usage.get('whatwg-fetch')?.opaque).toBe(false)
+    expect([...(project.usage.get('whatwg-fetch')?.bindings ?? [])]).toEqual([])
+  })
+
+  // `foo(require('x'))` may be feeding a name this scanner cannot see.
+  it('flags a call whose result goes somewhere it cannot follow', () => {
+    expect(project.usage.get('intersection-observer')?.opaque).toBe(true)
+  })
+})

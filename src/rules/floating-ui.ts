@@ -84,7 +84,7 @@ const rule: Rule = {
 
     // require() and dynamic import() hand over no specifiers at all, and an empty
     // set is not evidence that every import is covered — it is the absence of any.
-    if (!usage.specifiers.size) {
+    if (!usage.specifiers.size || usage.opaque) {
       return {
         verdict: 'check',
         note: 'Pulled in without named imports (require or a dynamic import), so which parts are in use cannot be seen from here.',

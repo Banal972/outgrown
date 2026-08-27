@@ -73,20 +73,20 @@ describe('polyfill codemod — what it refuses to touch', () => {
     expect(plan.removals.some((r) => r.pkg === 'dialog-polyfill')).toBe(false)
   })
 
-  // `if (!('IntersectionObserver' in window)) await import('intersection-observer')`
-  // — removing this changes behaviour rather than just weight.
+  // `if (!window.fetch) { require('whatwg-fetch') }` — removing this changes
+  // behaviour rather than just weight, and only the AST can see the nesting.
   it('leaves a conditionally loaded import', () => {
-    expect(keptFor('intersection-observer')?.reason).toContain('nested in a conditional')
-    expect(plan.contents.has('src/lazy.js')).toBe(false)
+    expect(keptFor('whatwg-fetch')?.reason).toContain('nested in a conditional')
+    expect(plan.contents.has('src/legacy.js')).toBe(false)
   })
 
   it('does not offer to uninstall a package it left behind', () => {
     expect(plan.uninstall).not.toContain('dialog-polyfill')
-    expect(plan.uninstall).not.toContain('intersection-observer')
+    expect(plan.uninstall).not.toContain('whatwg-fetch')
   })
 
   it('offers to uninstall the ones it fully removed', () => {
-    expect(plan.uninstall).toEqual(['resize-observer-polyfill', 'urlpattern-polyfill', 'whatwg-fetch'])
+    expect(plan.uninstall).toEqual(['resize-observer-polyfill', 'urlpattern-polyfill'])
   })
 })
 
@@ -134,6 +134,7 @@ describe('polyfill codemod — writing', () => {
     for (const [file, contents] of plan.contents) writeFileSync(join(workspace, file), contents)
 
     expect(readFileSync(join(workspace, 'src/boot.js'), 'utf8')).not.toContain('whatwg-fetch')
+    expect(readFileSync(join(workspace, 'src/legacy.js'), 'utf8')).toContain('whatwg-fetch')
     expect(readFileSync(join(workspace, 'src/modal.js'), 'utf8')).toContain('dialog-polyfill')
   })
 
@@ -160,7 +161,7 @@ describe('renderPlan', () => {
     const output = renderPlan(await planFor(FIXABLE), false)
 
     expect(output).toContain('Left alone:')
-    expect(output).toContain('intersection-observer')
+    expect(output).toContain('whatwg-fetch')
     expect(output).toContain('nested in a conditional')
   })
 

@@ -69,10 +69,15 @@ describe('browsers that cannot be judged', () => {
     expect(targets.derivative).toContain('baidu')
   })
 
-  // Technology Preview is strictly ahead of stable, so it constrains nothing.
-  it('separates versions ahead of stable from ones it cannot parse', () => {
-    const targets = resolveTargets(FIXTURES, 'safari TP, chrome 145')
-    expect(targets.aheadOfStable).toEqual(['safari TP'])
-    expect(targets.unknownVersions).toEqual([])
+  // Technology Preview only becomes redundant once a stable Safari is in the
+  // query too. Alone, it is the only thing constraining Safari.
+  it('ignores a preview version only when a stable one is also present', () => {
+    const withStable = resolveTargets(FIXTURES, 'safari TP, safari 26.2, chrome 145')
+    expect(withStable.aheadOfStable).toEqual(['safari TP'])
+    expect(withStable.unknownVersions).toEqual([])
+
+    const alone = resolveTargets(FIXTURES, 'safari TP, chrome 145')
+    expect(alone.aheadOfStable).toEqual([])
+    expect(alone.unknownVersions).toEqual(['safari TP'])
   })
 })
