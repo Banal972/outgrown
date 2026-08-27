@@ -1,0 +1,20 @@
+{
+  "name": "demo-app",
+  "private": true,
+  "version": "0.0.0",
+  "browserslist": [
+    "chrome >= 130",
+    "firefox >= 132",
+    "safari >= 18",
+    "ios_saf >= 18",
+    "edge >= 130"
+  ],
+  "dependencies": {
+    "@floating-ui/react": "^0.27.0",
+    "aos": "^2.3.4",
+    "framer-motion": "^11.0.0",
+    "react": "^19.0.0",
+    "react-modal": "^3.16.1",
+    "whatwg-fetch": "^3.6.20"
+  }
+}

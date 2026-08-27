@@ -1,0 +1,20 @@
+{
+  "name": "fixture-app",
+  "private": true,
+  "browserslist": [
+    "chrome >= 145",
+    "firefox >= 148",
+    "safari >= 26.2",
+    "ios_saf >= 26.2",
+    "edge >= 145"
+  ],
+  "dependencies": {
+    "@floating-ui/react": "^0.27.0",
+    "aos": "^2.3.4",
+    "framer-motion": "^11.0.0",
+    "react-modal": "^3.16.1",
+    "whatwg-fetch": "^3.6.20",
+    "left-behind": "^1.0.0",
+    "intersection-observer": "^0.12.2"
+  }
+}

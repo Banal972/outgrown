@@ -1,0 +1,54 @@
+import { fileURLToPath } from 'node:url'
+import { dirname, join } from 'node:path'
+import { compareVersions, resolveTargets } from '../src/targets.js'
+
+const FIXTURES = join(dirname(fileURLToPath(import.meta.url)), 'fixtures')
+
+describe('compareVersions', () => {
+  it('orders by numeric segment, not string', () => {
+    expect(compareVersions('9', '10')).toBeLessThan(0)
+    expect(compareVersions('26.10', '26.9')).toBeGreaterThan(0)
+  })
+
+  it('treats missing segments as zero', () => {
+    expect(compareVersions('18', '18.0')).toBe(0)
+    expect(compareVersions('18', '18.3')).toBeLessThan(0)
+  })
+})
+
+describe('resolveTargets', () => {
+  it('reads the project browserslist and maps to core browser keys', () => {
+    const targets = resolveTargets(join(FIXTURES, 'app'))
+
+    expect(targets.source).toBe('project')
+    expect(targets.minimums).toMatchObject({
+      chrome: '145',
+      firefox: '148',
+      safari: '26.2',
+      safari_ios: '26.2',
+      edge: '145',
+    })
+  })
+
+  it('keeps the lowest version when a browser appears more than once', () => {
+    const targets = resolveTargets(FIXTURES, 'chrome 120, chrome 100, chrome 130')
+    expect(targets.minimums.chrome).toBe('100')
+  })
+
+  it('takes the low end of a version range', () => {
+    const targets = resolveTargets(FIXTURES, 'ios_saf 16.0-16.3')
+    expect(targets.minimums.safari_ios).toBe('16.0')
+  })
+
+  it('reports non-core browsers instead of silently dropping them', () => {
+    const targets = resolveTargets(FIXTURES, 'chrome 130, samsung 27, op_mini all')
+
+    expect(targets.minimums.chrome).toBe('130')
+    expect(targets.ignored).toEqual(expect.arrayContaining(['samsung', 'op_mini']))
+    expect(targets.minimums).not.toHaveProperty('samsung')
+  })
+
+  it('sets source to override when a query is passed', () => {
+    expect(resolveTargets(join(FIXTURES, 'app'), 'chrome 130').source).toBe('override')
+  })
+})

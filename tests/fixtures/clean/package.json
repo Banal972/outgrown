@@ -1,0 +1,1 @@
+{ "name": "fixture-clean", "private": true, "browserslist": ["chrome >= 145", "firefox >= 148", "safari >= 26.2"] }

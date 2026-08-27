@@ -1,0 +1,82 @@
+{
+  "name": "outgrown",
+  "version": "0.1.0",
+  "description": "Find dependencies your project has outgrown — still imported, but the browser now does the job",
+  "keywords": [
+    "baseline",
+    "browserslist",
+    "dependencies",
+    "bundle-size",
+    "web-features",
+    "polyfill",
+    "cli"
+  ],
+  "license": "MIT",
+  "type": "module",
+  "bin": {
+    "outgrown": "./dist/cli.js"
+  },
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "types": "./dist/index.d.ts",
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsc && node scripts/build-e18e-rule.mjs && tsc && node scripts/build-data.mjs && tsc",
+    "dev": "tsc --watch",
+    "demo": "node dist/cli.js fixtures/demo-app",
+    "prepublishOnly": "npm run typecheck && npm test && npm run build",
+    "test": "NODE_OPTIONS=--experimental-vm-modules jest",
+    "test:watch": "NODE_OPTIONS=--experimental-vm-modules jest --watch",
+    "typecheck": "tsc --noEmit -p tsconfig.test.json",
+    "build:data": "node scripts/build-data.mjs",
+    "build:e18e": "node scripts/build-e18e-rule.mjs"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "dependencies": {
+    "browserslist": "^4.28.1",
+    "picocolors": "^1.1.1"
+  },
+  "peerDependencies": {
+    "@babel/parser": ">=7.24",
+    "esbuild": ">=0.20",
+    "web-features": ">=3"
+  },
+  "peerDependenciesMeta": {
+    "esbuild": {
+      "optional": true
+    },
+    "web-features": {
+      "optional": true
+    },
+    "@babel/parser": {
+      "optional": true
+    }
+  },
+  "devDependencies": {
+    "@babel/parser": "^8.0.4",
+    "@types/jest": "^30.0.0",
+    "@types/node": "^22.0.0",
+    "esbuild": "^0.25.0",
+    "jest": "^30.4.2",
+    "module-replacements": "^3.3.0",
+    "ts-jest": "^29.4.12",
+    "typescript": "^5.7.0",
+    "web-features": "^3.35.1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/OWNER/outgrown.git"
+  },
+  "bugs": {
+    "url": "https://github.com/OWNER/outgrown/issues"
+  },
+  "homepage": "https://github.com/OWNER/outgrown#readme"
+}

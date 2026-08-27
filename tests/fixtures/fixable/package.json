@@ -1,0 +1,12 @@
+{
+  "name": "fixture-fixable",
+  "private": true,
+  "browserslist": ["chrome >= 145", "firefox >= 148", "safari >= 26.2", "ios_saf >= 26.2"],
+  "dependencies": {
+    "whatwg-fetch": "^3.6.20",
+    "resize-observer-polyfill": "^1.5.1",
+    "dialog-polyfill": "^0.5.6",
+    "urlpattern-polyfill": "^10.0.0",
+    "intersection-observer": "^0.12.2"
+  }
+}
