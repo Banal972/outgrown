@@ -31,14 +31,12 @@ export function render({ targets, project, data, coverage, assumed, findings }: 
     : `bundled slice (${data.version}) — install web-features for live data`
   write(pc.dim(`data: ${dataLabel}`))
 
-  if (targets.legacy.length) {
-    write(pc.red(`${targets.legacy.join(', ')} will never support these features — nothing can be dropped`))
+  const unjudged = [...targets.noData, ...targets.derivative, ...targets.unknownVersions]
+  if (unjudged.length) {
+    write(pc.yellow(`unverified for ${unjudged.join(', ')} — web-features has no data, so nothing here can be a DROP`))
   }
-  if (targets.derivative.length) {
-    write(pc.dim(`unverified for ${targets.derivative.join(', ')} — engine derivatives web-features does not cover`))
-  }
-  if (targets.unknownVersions.length) {
-    write(pc.dim(`no version to judge: ${targets.unknownVersions.join(', ')} — left out`))
+  if (targets.aheadOfStable.length) {
+    write(pc.dim(`${targets.aheadOfStable.join(', ')} is ahead of stable, so it constrains nothing`))
   }
 
   // No browserslist means every verdict rests on a guess. Make the guess visible
@@ -131,12 +129,7 @@ export function render({ targets, project, data, coverage, assumed, findings }: 
   write(pc.dim(scope))
   write(pc.dim(advisory))
 
-  // A legacy browser in the query outranks any version gap: it is why nothing
-  // can be dropped, and naming a Firefox version instead would send the reader
-  // after the wrong thing.
-  const worst = targets.legacy.length
-    ? { key: targets.legacy.join(', '), count: findings.filter((f) => f.verdict === 'not-yet').length }
-    : topBlocker(findings)
+  const worst = topBlocker(findings)
 
   if (worst) {
     write()

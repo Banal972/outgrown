@@ -13,10 +13,12 @@ const CORE: Record<string, BrowserKey> = {
 }
 
 /**
- * Browsers that will never get modern platform features. If one of these is in
- * the query, a feature is genuinely unavailable — not merely unverified.
+ * Browsers web-features has no data for at all, and whose engines are not
+ * tracking a core browser. Their support is unknown, not known to be absent:
+ * IE 11 has requestAnimationFrame, so a blanket "never" would be its own kind of
+ * made-up verdict.
  */
-const LEGACY = new Set(['ie', 'ie_mob', 'op_mini', 'bb', 'kaios', 'baidu'])
+const NO_DATA = new Set(['ie', 'ie_mob', 'op_mini', 'bb', 'kaios'])
 
 /** "16.0-16.3" · "26.1" · "TP" → the version to judge against, or null. */
 function lowestVersion(raw: string): string | null {
@@ -35,9 +37,10 @@ export function resolveTargets(cwd: string, override?: string): Targets {
 
   const minimums: Minimums = {}
   const ignored = new Set<string>()
-  const legacy = new Set<string>()
+  const noData = new Set<string>()
   const derivative = new Set<string>()
   const unknownVersions: string[] = []
+  const aheadOfStable: string[] = []
 
   for (const entry of raw) {
     const [id, version] = entry.split(' ')
@@ -45,16 +48,19 @@ export function resolveTargets(cwd: string, override?: string): Targets {
     if (!key) {
       if (!id) continue
       ignored.add(id)
-      // Everything else is an engine derivative or simply unknown to
-      // web-features: enough to withhold a DROP, not enough to call a feature
-      // unsupported.
-      if (LEGACY.has(id)) legacy.add(entry)
+      // Everything else — samsung, opera, baidu, uc — is a Chromium or WebKit
+      // derivative: it does get these features, trailing the engine by an amount
+      // web-features cannot tell us.
+      if (NO_DATA.has(id)) noData.add(entry)
       else derivative.add(id)
       continue
     }
     const parsed = version ? lowestVersion(version) : null
     if (parsed === null) {
-      unknownVersions.push(entry)
+      // Safari Technology Preview is strictly ahead of stable Safari, so leaving
+      // it out constrains nothing. Anything else unparseable is a real unknown.
+      if (/^TP$/i.test(version ?? '')) aheadOfStable.push(entry)
+      else unknownVersions.push(entry)
       continue
     }
     const current = minimums[key]
@@ -64,9 +70,10 @@ export function resolveTargets(cwd: string, override?: string): Targets {
   return {
     minimums,
     ignored: [...ignored],
-    legacy: [...legacy],
+    noData: [...noData],
     derivative: [...derivative],
     unknownVersions,
+    aheadOfStable,
     source: override ? 'override' : browserslist.findConfig(cwd) ? 'project' : 'default',
     raw,
   }

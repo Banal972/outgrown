@@ -82,6 +82,15 @@ const rule: Rule = {
       }
     }
 
+    // require() and dynamic import() hand over no specifiers at all, and an empty
+    // set is not evidence that every import is covered — it is the absence of any.
+    if (!usage.specifiers.size) {
+      return {
+        verdict: 'check',
+        note: 'Pulled in without named imports (require or a dynamic import), so which parts are in use cannot be seen from here.',
+      }
+    }
+
     return {
       verdict: 'drop',
       note: `Only ${[...usage.specifiers].join(', ')} are imported, and CSS covers all of them.`,

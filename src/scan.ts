@@ -48,28 +48,37 @@ function walk(dir: string, out: string[]): string[] {
   return out
 }
 
-/** `{ motion, AnimatePresence }` · `React` · `* as X` → binding names. */
-function parseSpecifiers(clause: string | null): string[] {
-  if (!clause) return []
-  const names: string[] = []
+/**
+ * `{ motion, AnimatePresence }` · `React` · `{ ResizeObserver as RO }`
+ *
+ * Returns both halves: what was imported (for display) and what it is bound to
+ * locally (for deciding whether deleting the import is safe).
+ */
+function parseSpecifiers(clause: string | null): { imported: string[]; bound: string[] } {
+  const imported: string[] = []
+  const bound: string[] = []
+  if (!clause) return { imported, bound }
 
   const braces = clause.match(/\{([\s\S]*?)\}/)
   if (braces?.[1]) {
     for (const part of braces[1].split(',')) {
       const [source, alias] = part.trim().split(/\s+as\s+/).map((piece) => piece.trim())
+      if (!source) continue
       // `{ default as Modal }` — the alias is the only informative half.
-      const name = source === 'default' ? alias : source
-      if (name) names.push(name)
+      if (source !== 'default') imported.push(source)
+      else if (alias) imported.push(alias)
+      if (alias ?? source) bound.push((alias ?? source) as string)
     }
   }
 
   const bare = clause.replace(/\{[\s\S]*?\}/, '').replace(/,/g, ' ').trim()
   for (const token of bare.split(/\s+/)) {
     if (!token || token === '*' || token === 'as' || token === 'type') continue
-    names.push(token)
+    imported.push(token)
+    bound.push(token)
   }
 
-  return names
+  return { imported, bound }
 }
 
 /** '@floating-ui/react/utils' → '@floating-ui/react'; relative paths → null. */
@@ -103,7 +112,7 @@ export function scanProject(root: string): Project {
 
         let record = usage.get(pkg)
         if (!record) {
-          record = { files: new Map(), specifiers: new Set() }
+          record = { files: new Map(), specifiers: new Set(), bindings: new Set() }
           usage.set(pkg, record)
         }
 
@@ -115,9 +124,9 @@ export function scanProject(root: string): Project {
         }
         fileUsage.lines.push(text.slice(0, match.index).split('\n').length)
 
-        for (const name of parseSpecifiers(clause === null ? null : (match[clause] ?? null))) {
-          record.specifiers.add(name)
-        }
+        const parsed = parseSpecifiers(clause === null ? null : (match[clause] ?? null))
+        for (const name of parsed.imported) record.specifiers.add(name)
+        for (const name of parsed.bound) record.bindings.add(name)
       }
     }
   }

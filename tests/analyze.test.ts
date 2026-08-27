@@ -176,10 +176,8 @@ describe('projects with no browserslist', () => {
     expect(output).toContain('This project has no browserslist')
     expect(output).toContain('a guess, not your policy')
 
-    const firstVerdict = Math.min(
-      ...['DROP', 'CHECK', 'NOT YET'].map((badge) => output.indexOf(badge)).filter((at) => at !== -1),
-    )
-    expect(output.indexOf('no browserslist')).toBeLessThan(firstVerdict)
+    // The arrow only appears inside a finding, so it marks where the verdicts start.
+    expect(output.indexOf('no browserslist')).toBeLessThan(output.indexOf('→'))
   })
 
   it('says nothing about assumptions when the project has its own config', async () => {
@@ -197,11 +195,27 @@ describe('unjudgeable targets', () => {
     await expect(analyze(R1, { measure: false, targets: 'safari TP' })).rejects.toThrow(/no judgeable browsers/)
   })
 
-  it('calls a feature unsupported when a legacy browser is in the query', async () => {
+  // "ie 11 will never support this" was a claim with no data behind it — IE has
+  // requestAnimationFrame. Unverified is not unsupported.
+  it('withholds drop without claiming a feature is unsupported', async () => {
     const report = await analyze(R1, { measure: false, targets: 'ie 11, chrome 145, firefox 152, safari 26.2' })
 
-    expect(report.findings.every((f) => f.verdict === 'not-yet')).toBe(true)
-    expect(report.findings[0]?.note).toContain('ie 11')
+    expect(report.findings.some((f) => f.verdict === 'drop')).toBe(false)
+    expect(report.findings.some((f) => f.verdict === 'check')).toBe(true)
+    expect(report.findings.find((f) => f.verdict === 'check')?.note).toContain('ie 11')
+  })
+
+  it('treats an unparseable version the same as an unjudgeable browser', async () => {
+    const clean = await analyze(R1, { measure: false, targets: 'chrome 145, firefox 152, safari 26.2' })
+    expect(clean.findings.some((f) => f.verdict === 'drop')).toBe(true)
+
+    const withUnknown = await analyze(R1, { measure: false, targets: 'chrome 145, firefox 152, safari 26.2, samsung 27' })
+    expect(withUnknown.findings.some((f) => f.verdict === 'drop')).toBe(false)
+  })
+
+  it('lets safari TP through, since it is ahead of stable', async () => {
+    const report = await analyze(R1, { measure: false, targets: 'safari TP, chrome 145, firefox 152, safari 26.2' })
+    expect(report.findings.some((f) => f.verdict === 'drop')).toBe(true)
   })
 
   // Samsung Internet trails Chrome by an unknown amount and web-features has no
@@ -215,9 +229,9 @@ describe('unjudgeable targets', () => {
     expect(withSamsung.findings.some((f) => f.verdict === 'check')).toBe(true)
   })
 
-  it('names the legacy browser as the blocker rather than a version gap', async () => {
+  it('says which targets it could not judge, above the verdicts', async () => {
     const output = render(await analyze(R1, { measure: false, targets: 'ie 11, chrome 145, firefox 152, safari 26.2' }))
-    expect(output).toContain('will never support these features')
-    expect(output).toMatch(/Biggest blocker: .*ie 11/)
+    expect(output).toContain('unverified for ie 11')
+    expect(output).toContain('nothing here can be a DROP')
   })
 })

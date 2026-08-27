@@ -15,10 +15,12 @@ export interface Targets {
   minimums: Minimums
   /** browserslist entries outside the Baseline core set, excluded from judgement. */
   ignored: string[]
-  /** Of those, the ones that will never support modern features (ie, op_mini …). */
-  legacy: string[]
-  /** Of those, engine derivatives whose lag is unknown (samsung, opera …). */
+  /** Of those, the ones web-features has no data for at all (ie, op_mini …). */
+  noData: string[]
+  /** Of those, engine derivatives whose lag is unknown (samsung, opera, baidu …). */
   derivative: string[]
+  /** Versions that are strictly ahead of stable, so they constrain nothing (safari TP). */
+  aheadOfStable: string[]
   /** Entries whose version could not be parsed (e.g. "safari TP"). */
   unknownVersions: string[]
   source: 'override' | 'project' | 'default'
@@ -70,8 +72,14 @@ export interface FileUsage {
 
 export interface PackageUsage {
   files: Map<string, FileUsage>
-  /** Imported binding names, e.g. `useFloating`, `AnimatePresence`. */
+  /** What was imported from the package, e.g. `useFloating`, `AnimatePresence`. */
   specifiers: Set<string>
+  /**
+   * The local names those imports are bound to. Usually the same, but
+   * `{ ResizeObserver as RO }` binds `RO` — and it is the local name that has to
+   * survive deleting the import, so safety checks read this and not `specifiers`.
+   */
+  bindings: Set<string>
 }
 
 export interface Project {

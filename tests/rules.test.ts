@@ -1,10 +1,15 @@
 import { rules } from '../src/rules/index.js'
 import type { PackageUsage, Project, Rule } from '../src/types.js'
 
-function usageOf(files: Record<string, string>, specifiers: string[] = []): PackageUsage {
+function usageOf(
+  files: Record<string, string>,
+  specifiers: string[] = [],
+  bindings: string[] = specifiers,
+): PackageUsage {
   return {
     files: new Map(Object.entries(files).map(([name, text]) => [name, { lines: [1], text }])),
     specifiers: new Set(specifiers),
+    bindings: new Set(bindings),
   }
 }
 
@@ -163,6 +168,17 @@ describe('dialog', () => {
 })
 
 describe('polyfills — bindings and packages that cannot be judged', () => {
+  // `{ ResizeObserver as RO }` binds RO; the global answers to ResizeObserver.
+  it('reads the local binding, not the name it was imported under', () => {
+    const result = inspect(
+      'polyfills',
+      'resize-observer-polyfill',
+      usageOf({ 'a.js': `new RO(cb)` }, ['ResizeObserver'], ['RO']),
+    )
+    expect(result?.verdict).toBe('check')
+    expect(result?.note).toContain('`RO` is bound to the import')
+  })
+
   // Deleting the import leaves `fetch` resolving to the global of the same name.
   it('drops when the binding matches the native global', () => {
     const result = inspect('polyfills', 'unfetch', usageOf({ 'a.js': `fetch(url)` }, ['fetch']))
@@ -188,5 +204,15 @@ describe('polyfills — bindings and packages that cannot be judged', () => {
     const result = inspect('polyfills', 'isomorphic-fetch', usageOf({ 'a.js': '' }))
     expect(result?.verdict).toBe('check')
     expect(result?.note).toContain('Node')
+  })
+})
+
+describe('imports the scanner cannot see into', () => {
+  // require() and dynamic import() carry no specifiers. An empty set is the
+  // absence of evidence, not evidence that every import is covered.
+  it('does not read "no specifiers" as "all specifiers are safe"', () => {
+    const result = inspect('floating-ui', '@floating-ui/dom', usageOf({ 'a.js': `require('@floating-ui/dom')` }))
+    expect(result?.verdict).toBe('check')
+    expect(result?.note).toContain('without named imports')
   })
 })

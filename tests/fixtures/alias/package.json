@@ -1,0 +1,3 @@
+{ "name": "fixture-alias", "private": true,
+  "browserslist": ["chrome >= 145", "firefox >= 152", "safari >= 26.2"],
+  "dependencies": { "resize-observer-polyfill": "^1" } }

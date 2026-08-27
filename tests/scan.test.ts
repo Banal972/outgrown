@@ -77,3 +77,15 @@ describe('re-exports', () => {
     expect([...(project.usage.get('react-modal')?.specifiers ?? [])]).toContain('Modal')
   })
 })
+
+describe('aliased imports', () => {
+  const project = scanProject(join(FIXTURES, 'alias'))
+  const usage = project.usage.get('resize-observer-polyfill')
+
+  // Deleting the import has to leave the *local* name resolvable, so the local
+  // name is what a safety check needs — not the name it was imported under.
+  it('records the local binding, not just the imported name', () => {
+    expect([...(usage?.specifiers ?? [])]).toContain('ResizeObserver')
+    expect([...(usage?.bindings ?? [])]).toEqual(['RO'])
+  })
+})

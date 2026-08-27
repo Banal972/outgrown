@@ -57,7 +57,7 @@ export async function analyze(root: string, options: AnalyzeOptions = {}): Promi
       let sites: string[] | undefined
 
       if (support.supported) {
-        const seen = usage ?? { files: new Map(), specifiers: new Set<string>() }
+        const seen = usage ?? { files: new Map(), specifiers: new Set<string>(), bindings: new Set<string>() }
         const inspection = rule.inspect({ pkg, usage: seen, project })
         // Nothing to say: the feature exists, but this project uses the library
         // for things the platform still cannot do.
@@ -66,16 +66,13 @@ export async function analyze(root: string, options: AnalyzeOptions = {}): Promi
         note = inspection.note
         sites = inspection.sites
 
-        if (targets.legacy.length) {
-          // These browsers never get the feature, so it is unsupported here — not
-          // merely unverified.
-          verdict = 'not-yet'
-          note = `${targets.legacy.join(', ')} will never support this`
-        } else if (targets.derivative.length && verdict === 'drop') {
-          // Engine derivatives trail by an unknown amount and web-features has no
-          // data for them. Not enough to say no; too much to say yes.
+        // One rule for every target that could not be judged, whatever the
+        // reason: unverified is not the same as unsupported, and a DROP has to be
+        // established against all of them, not most of them.
+        const unjudged = unjudgedTargets(targets)
+        if (unjudged.length && verdict === 'drop') {
           verdict = 'check'
-          note = `${note} Unverified for ${targets.derivative.join(', ')}, which web-features does not cover.`
+          note = `${note} Unverified for ${unjudged.join(', ')} — web-features has no data for them.`
         }
       } else {
         verdict = 'not-yet'
@@ -184,6 +181,17 @@ function measureAssumption(
   }
 
   return { oldest, alternatives }
+}
+
+/**
+ * Everything in the query no verdict can be established against.
+ *
+ * Deliberately one list. "ie 11 will never support this" was a claim with no data
+ * behind it — IE has requestAnimationFrame — and Samsung Internet's lag is just as
+ * unmeasurable. Unverified is not unsupported, and neither is a DROP.
+ */
+export function unjudgedTargets(targets: Targets): string[] {
+  return [...targets.noData, ...targets.derivative, ...targets.unknownVersions]
 }
 
 function describeBlockers({ blockers, missing }: Support): string {

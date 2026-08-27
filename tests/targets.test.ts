@@ -54,15 +54,25 @@ describe('resolveTargets', () => {
 })
 
 describe('browsers that cannot be judged', () => {
-  it('separates browsers that will never support a feature from engine derivatives', () => {
+  it('separates browsers with no data from engine derivatives', () => {
     const targets = resolveTargets(FIXTURES, 'ie 11, samsung 27, chrome 145')
 
-    expect(targets.legacy).toEqual(['ie 11'])
+    expect(targets.noData).toEqual(['ie 11'])
     expect(targets.derivative).toEqual(['samsung'])
     expect(targets.minimums.chrome).toBe('145')
   })
 
-  it('records versions it cannot parse instead of dropping them', () => {
-    expect(resolveTargets(FIXTURES, 'safari TP, chrome 145').unknownVersions).toEqual(['safari TP'])
+  // Baidu Browser is Chromium — it does get these features, unlike IE.
+  it('does not treat a Chromium derivative as having no data', () => {
+    const targets = resolveTargets(FIXTURES, 'baidu 13, chrome 145')
+    expect(targets.noData).toEqual([])
+    expect(targets.derivative).toContain('baidu')
+  })
+
+  // Technology Preview is strictly ahead of stable, so it constrains nothing.
+  it('separates versions ahead of stable from ones it cannot parse', () => {
+    const targets = resolveTargets(FIXTURES, 'safari TP, chrome 145')
+    expect(targets.aheadOfStable).toEqual(['safari TP'])
+    expect(targets.unknownVersions).toEqual([])
   })
 })

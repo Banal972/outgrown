@@ -109,9 +109,9 @@ const rule: Rule = {
     }
 
     // A used binding only survives deletion when the global answers to the same
-    // name. Otherwise the import is load-bearing and this is not a one-line fix.
-    const bindings = [...usage.specifiers]
-    const orphaned = bindings.filter((name) => name !== entry?.global)
+    // name. What matters is the *local* name — `{ ResizeObserver as RO }` leaves
+    // `RO` behind, which no global answers to.
+    const orphaned = [...usage.bindings].filter((name) => name !== entry?.global)
 
     if (orphaned.length) {
       return {
