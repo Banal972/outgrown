@@ -1,6 +1,6 @@
 {
   "name": "outgrown",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Find dependencies your project has outgrown — still imported, but the browser now does the job",
   "keywords": [
     "baseline",
