@@ -54,7 +54,40 @@ Which also means verdicts change over time without you touching a line of code. 
 
 Sizes are measured, not estimated: the package is bundled with esbuild, minified and gzipped.
 
-## Rules (v0.0.1)
+## What outgrown is not
+
+**It does not check every package you depend on.** It checks a curated set — 317
+at the time of writing — chosen two ways: by working backwards from features that
+recently reached Baseline, and by download weight, because the long tail is very
+long and the head is very fat (the top 50 polyfill packages account for 92% of all
+downloads in that category). Everything outside that set is simply not looked at,
+and every run says so:
+
+```
+checked 317 known packages across 7 rules — a curated set, not every dependency you have
+```
+
+A clean report means nothing matched the rules that exist today. It is not proof
+your dependencies are clean.
+
+**It advises; it does not decide.** Three things underneath a verdict are
+judgement, not fact:
+
+- usage is matched with regexes, so an unusual import shape can be missed
+- "does this usage map onto the platform" is a call a person wrote into a rule
+- rules get added, corrected, and occasionally proved wrong — this README is one
+  commit after a rule was reporting an animation library for doing animation work
+
+And verdicts move on their own. Browsers ship, `web-features` updates, your
+browserslist changes: the same code can be `NOT YET` this year and `DROP` the
+next, without anyone touching it. A verdict is a snapshot of today's rules against
+today's data, for today's targets.
+
+So read the diff and run your tests — `outgrown fix` says the same thing after it
+writes. `CHECK` always needs a human by definition; `DROP` is a strong suggestion,
+not a guarantee.
+
+## Rules
 
 | Rule | Packages | Replacement |
 | --- | --- | --- |

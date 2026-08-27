@@ -46,6 +46,8 @@ export function renderPlan(plan: FixPlan, write: boolean): string {
       : `Would remove ${pc.bold(plan.removals.length)} import${plan.removals.length === 1 ? '' : 's'} from ${plan.contents.size} file${plan.contents.size === 1 ? '' : 's'}.`,
   )
 
+  if (write) out(pc.dim('Read the diff and run your tests before committing.'))
+
   if (plan.uninstall.length) {
     out()
     out(pc.dim('Then, once you are happy with the diff:'))

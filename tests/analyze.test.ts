@@ -115,12 +115,20 @@ describe('coverage disclosure', () => {
     const output = render(await analyze(join(FIXTURES, 'clean'), { measure: false }))
 
     expect(output).toContain('Nothing to drop.')
-    expect(output).toMatch(/checked \d+ packages across \d+ rules/)
-    expect(output).toContain('Anything outside those rules was not looked at')
+    expect(output).toMatch(/checked \d+ known packages across \d+ rules/)
+    expect(output).toContain('a curated set, not every dependency you have')
+    expect(output).toContain('not the same as your dependencies being clean')
   })
 
   it('states the scope alongside findings too', async () => {
     const output = render(await analyze(APP, { measure: false }))
-    expect(output).toMatch(/checked \d+ packages across \d+ rules/)
+    expect(output).toMatch(/checked \d+ known packages across \d+ rules/)
+  })
+
+  // A verdict is advice, not a decision — the reader has to stay in the loop.
+  it('says it advises rather than decides', async () => {
+    const output = render(await analyze(APP, { measure: false }))
+    expect(output).toContain('outgrown advises, it does not decide')
+    expect(output).toContain('run your tests')
   })
 })

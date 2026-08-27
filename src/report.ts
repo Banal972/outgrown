@@ -35,13 +35,18 @@ export function render({ targets, project, data, coverage, findings }: Report): 
     write(pc.dim(`not judged: ${targets.ignored.join(', ')} — outside the Baseline core browser set`))
   }
 
-  // A clean report is not proof the project is clean — say what was looked for.
-  const scope = `checked ${coverage.packages} packages across ${coverage.rules} rules`
+  // Two things a reader can get wrong on their own: assuming a clean report means
+  // a clean project, and treating a verdict as a decision. Say both out loud.
+  const scope =
+    `checked ${coverage.packages} known packages across ${coverage.rules} rules` +
+    ' — a curated set, not every dependency you have'
+  const advisory = 'outgrown advises, it does not decide. Read the diff and run your tests.'
 
   if (!findings.length) {
     write()
     write(pc.green('Nothing to drop.'))
-    write(pc.dim(`${scope}. Anything outside those rules was not looked at.`))
+    write(pc.dim(`${scope}.`))
+    write(pc.dim('That is not the same as your dependencies being clean.'))
     write()
     return lines.join('\n')
   }
@@ -90,7 +95,9 @@ export function render({ targets, project, data, coverage, findings }: Report): 
     .reduce((sum, f) => sum + (f.size?.gzip ?? 0), 0)
   if (locked > 0) write(pc.dim(`Raising your targets would unlock another ${kb(locked)}`))
 
+  write()
   write(pc.dim(scope))
+  write(pc.dim(advisory))
 
   const worst = topBlocker(findings)
   if (worst) {
