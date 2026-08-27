@@ -14,7 +14,10 @@ const SOURCE_LABEL = {
   assumed: 'assumed',
 } as const
 
-export function render({ targets, project, data, coverage, assumed, skipped, nodeSignals, findings }: Report): string {
+export function render(
+  { targets, project, data, coverage, assumed, skipped, nodeSignals, findings }: Report,
+  options: { nestedScanned?: boolean } = {},
+): string {
   const lines: string[] = []
   const write = (line = '') => lines.push(line)
 
@@ -63,11 +66,13 @@ export function render({ targets, project, data, coverage, assumed, skipped, nod
 
   // A workspace root has almost no source of its own, so a clean report there
   // says nothing about the packages underneath it.
-  const workspaceNote = skipped.length
-    ? `${skipped.length} nested package${skipped.length === 1 ? '' : 's'} not scanned` +
-      ` (${skipped.slice(0, 3).join(', ')}${skipped.length > 3 ? ', …' : ''})` +
-      ' — run outgrown inside one, or pass --workspaces'
-    : ''
+  const workspaceNote = !skipped.length
+    ? ''
+    : options.nestedScanned
+      ? `${skipped.length} nested package${skipped.length === 1 ? '' : 's'} scanned separately below`
+      : `${skipped.length} nested package${skipped.length === 1 ? '' : 's'} not scanned` +
+        ` (${skipped.slice(0, 3).join(', ')}${skipped.length > 3 ? ', …' : ''})` +
+        ' — run outgrown inside one, or pass --workspaces'
 
   // Two things a reader can get wrong on their own: assuming a clean report means
   // a clean project, and treating a verdict as a decision. Say both out loud.

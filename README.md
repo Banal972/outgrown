@@ -23,7 +23,7 @@ npx outgrown
   firefox unsupported · safari 18.0 < 26
 
 drop 2 · check 1 · not yet 1
-Delete now to save 35.4KB (gzip)
+Up to 35.4KB gzip if all of those go
 ```
 
 ## How it decides
@@ -64,29 +64,55 @@ says what it is.
 Plenty do not, and it matters here more than anywhere: without a browserslist there
 is no answer to "who do you still support", and every verdict rests on a guess.
 
-browserslist has its own defaults, and `outgrown` uses them — the same ones your
-bundler and autoprefixer already use, so at least the guess is consistent with your
-build. But they are market-share based, which produces odd shapes: today they still
-carry **chrome 109** (the last version for Windows 7/8) alongside a very recent
-Safari. So `outgrown` says so before showing any verdict:
+`outgrown` stands **`baseline widely available`** in for the missing config — every
+feature supported in all core browsers for 30 months or more — and says so before
+showing any verdict:
 
 ```
-This project has no browserslist, so these are browserslist's own defaults
-— still carrying chrome 109. That is a guess, not your policy.
+This project has no browserslist, so "baseline widely available" stood in for one.
+That is an assumption, not your policy.
 
   Pick a policy and the verdicts change with it:
-  "baseline widely available"
-      chrome 121, firefox 123, safari 17.2 — no change here
   "baseline newly available"
       chrome 148, firefox 154, safari 26.5 — 3 more open
+  "defaults"
+      chrome 109, firefox 140, safari 26.5 — no change here
 
   Set it in package.json "browserslist", or try one with --targets.
 ```
 
-Two queries rather than one recommendation, because picking a support policy is a
-trade: *widely available* means 30+ months of support in every core browser,
-*newly available* means whatever the slowest browser shipped most recently. The
-numbers next to each are what that choice is worth **in this project**.
+browserslist' own defaults would have been the obvious fallback, and are what a
+bundler reaches for — but they are market-share based, so they still carry Opera
+Mini and KaiOS. Those cannot be judged against `web-features` at all, which caps
+every verdict and leaves the report empty. An assumption that answers nothing is
+worse than one that is merely stated.
+
+The alternatives are priced against **this project**: *newly available* is however
+new the slowest browser is today, *defaults* is what your bundler would assume.
+Picking a support policy is a trade, and the numbers say what the trade is worth
+here.
+
+If the source also imports `fs` or `child_process`, `outgrown` points that out too
+— browser targets may not apply to it at all.
+
+## Monorepos
+
+The scan stops at any directory with its own `package.json`. That is right for an
+example folder and wrong for a workspace, so skipped packages are counted and
+named rather than passed over in silence:
+
+```
+Nothing to drop.
+14 nested packages not scanned (code, scripts, …) — run outgrown inside one, or pass --workspaces
+```
+
+```bash
+outgrown --workspaces
+```
+
+Each package is judged **separately**, because each carries its own browserslist;
+merging them would produce a verdict that belongs to no package. One level down,
+and each nested report says what it skipped in turn.
 
 ## What outgrown is not
 
@@ -203,7 +229,7 @@ Three sources, in decreasing order of hand-holding:
 
 ```
 Nothing to drop.
-checked 67 packages across 5 rules. Anything outside those rules was not looked at.
+checked 317 known packages across 7 rules — a curated set, not every dependency you have.
 ```
 
 A clean report is not proof your project is clean. It means nothing matched the
@@ -231,6 +257,7 @@ is mis-paired, and the feature id always gets checked by hand before it lands.
 ```bash
 outgrown [path]
 outgrown --targets "chrome >= 130, firefox >= 132, safari >= 18"   # what-if
+outgrown --workspaces                                              # nested packages too
 outgrown --json
 outgrown --no-measure                                              # skip sizing
 ```
@@ -246,8 +273,8 @@ const droppable = report.findings.filter((f) => f.verdict === 'drop')
 
 ## Install size
 
-Two dependencies are **optional peers**, because a tool that complains about bundle
-weight should not be heavy itself.
+Three dependencies are **optional peers**, because a tool that complains about
+bundle weight should not be heavy itself.
 
 ```bash
 npm i -D web-features   # live browser support data, updated weekly upstream
@@ -300,7 +327,7 @@ analyser produces today — it exists to catch the AST rewrite breaking them.
 - Imports are matched with regexes. Dynamic paths and tsconfig aliases are missed; `outgrown fix` uses a real parser, the report does not
 - Sizes are whole-package upper bounds, not your build's actual saving
 - Only the seven Baseline core browsers are judged. Everything else (samsung, op_mob, …) is excluded and reported
-- `fix` covers the `polyfills` rule only. The other four still need hands
+- `fix` covers the `polyfills` rule only. The other six still need hands
 
 ## License
 

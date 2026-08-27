@@ -283,3 +283,15 @@ describe('workspaces', () => {
     expect(report.findings.some((f) => f.pkg === 'whatwg-fetch' && f.verdict === 'drop')).toBe(true)
   })
 })
+
+describe('workspace rendering', () => {
+  // Telling the reader to pass --workspaces while --workspaces is running is
+  // advice that has already been taken.
+  it('changes the note when the nested packages are being scanned', async () => {
+    const report = await analyze(join(FIXTURES, 'workspace'), { measure: false })
+
+    expect(render(report)).toContain('not scanned')
+    expect(render(report, { nestedScanned: true })).toContain('scanned separately below')
+    expect(render(report, { nestedScanned: true })).not.toContain('pass --workspaces')
+  })
+})

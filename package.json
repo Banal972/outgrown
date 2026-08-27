@@ -14,15 +14,15 @@
   "license": "MIT",
   "type": "module",
   "bin": {
-    "outgrown": "./dist/cli.js"
+    "outgrown": "dist/cli.js"
   },
   "exports": {
     ".": {
-      "types": "./dist/index.d.ts",
-      "default": "./dist/index.js"
+      "types": "dist/index.d.ts",
+      "default": "dist/index.js"
     }
   },
-  "types": "./dist/index.d.ts",
+  "types": "dist/index.d.ts",
   "files": [
     "dist"
   ],

@@ -42,6 +42,14 @@ async function main(): Promise<number> {
     return 1
   }
 
+  if (args.includes('fix') && args.includes('--workspaces')) {
+    console.error(
+      'outgrown: fix does not walk workspaces — each package needs its own review.' +
+        ' Run it inside the package you want to change.',
+    )
+    return 1
+  }
+
   const valueIndex = targetsIndex === -1 ? -1 : targetsIndex + 1
   const positional = args.filter((arg, index) => !arg.startsWith('--') && index !== valueIndex)
   const fixing = positional[0] === 'fix'
@@ -62,6 +70,8 @@ async function main(): Promise<number> {
       // separately rather than merged into one misleading verdict.
       if (args.includes('--workspaces') && report.skipped.length) {
         const reports = [{ path: '.', report }]
+        const failures: string[] = []
+
         for (const nested of report.skipped) {
           try {
             reports.push({
@@ -72,6 +82,7 @@ async function main(): Promise<number> {
               }),
             })
           } catch (error) {
+            failures.push(nested)
             console.error(`outgrown: ${nested}: ${error instanceof Error ? error.message : String(error)}`)
           }
         }
@@ -82,10 +93,17 @@ async function main(): Promise<number> {
           for (const entry of reports) {
             if (entry.path !== '.' && !entry.report.findings.length) continue
             console.log(`\n${'═'.repeat(20)} ${entry.path} ${'═'.repeat(20)}`)
-            console.log(render(entry.report))
+            console.log(render(entry.report, { nestedScanned: entry.path === '.' }))
           }
           const silent = reports.filter((e) => e.path !== '.' && !e.report.findings.length).length
           if (silent) console.log(`(${silent} nested package${silent === 1 ? '' : 's'} had nothing to report)`)
+        }
+
+        // A package that could not be analysed was not checked, and a green exit
+        // code in CI would say it was.
+        if (failures.length) {
+          console.error(`outgrown: ${failures.length} nested package(s) could not be analysed`)
+          return 1
         }
         return 0
       }
