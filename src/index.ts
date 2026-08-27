@@ -90,6 +90,7 @@ export async function analyze(root: string, options: AnalyzeOptions = {}): Promi
         note,
         sites,
         replacement: rule.replacementFor?.(pkg) ?? rule.replacement ?? '',
+        ...(rule.nativeGlobalFor?.(pkg) ? { nativeGlobal: rule.nativeGlobalFor(pkg) } : {}),
         docs: rule.docsFor?.(pkg) ?? rule.docs,
         files: usage ? [...usage.files.keys()] : [],
         imports: usage ? [...usage.specifiers] : [],

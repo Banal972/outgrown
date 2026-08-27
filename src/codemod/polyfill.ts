@@ -36,18 +36,6 @@ function packageOf(source: string): string | null {
   return source.startsWith('@') ? parts.slice(0, 2).join('/') : (parts[0] ?? null)
 }
 
-/**
- * The native replacement, when it is a bare global.
- *
- * `ResizeObserver` matters: deleting `import ResizeObserver from
- * 'resize-observer-polyfill'` leaves the identifier resolving to the global of the
- * same name, so the surrounding code keeps working. `window.fetch` or
- * `scroll-behavior: smooth` are not identifiers, so a used binding stays.
- */
-function globalName(replacement: string): string | null {
-  return /^[A-Z][A-Za-z0-9]*$/.test(replacement) ? replacement : null
-}
-
 /** Remove a statement along with the newline it sat on, so no blank line is left. */
 function cut(source: string, statement: Node): { text: string; start: number; end: number } {
   let start = statement.start
@@ -64,12 +52,21 @@ function cut(source: string, statement: Node): { text: string; start: number; en
   return { text: source.slice(start, end), start, end }
 }
 
-function decide(site: ImportSite, facts: Awaited<ReturnType<typeof readFile>>, replacement: string): string | null {
+/**
+ * `ResizeObserver` matters: deleting `import ResizeObserver from
+ * 'resize-observer-polyfill'` leaves the identifier resolving to the global of
+ * the same name, so the surrounding code keeps working. The rule states that
+ * global explicitly — guessing it from the replacement text got `unfetch` wrong,
+ * whose binding is `fetch` while the text reads `window.fetch`.
+ */
+function decide(
+  site: ImportSite,
+  facts: Awaited<ReturnType<typeof readFile>>,
+  native: string | undefined,
+): string | null {
   if (!site.topLevel) return 'nested in a conditional or function — removing it would change behaviour'
   if (site.kind === 'dynamic') return 'dynamic import — usually loaded conditionally'
   if (!facts) return 'could not parse'
-
-  const native = globalName(replacement)
 
   for (const binding of site.bindings) {
     const uses = referencesOutside(facts, binding, site.statement)
@@ -91,10 +88,10 @@ function decide(site: ImportSite, facts: Awaited<ReturnType<typeof readFile>>, r
 export async function planPolyfillFix(root: string, report: Report): Promise<FixPlan> {
   const plan: FixPlan = { removals: [], kept: [], contents: new Map(), uninstall: [] }
 
-  const targets = new Map<string, string>()
+  const targets = new Map<string, string | undefined>()
   for (const finding of report.findings) {
     if (finding.rule !== 'polyfills' || finding.verdict !== 'drop') continue
-    targets.set(finding.pkg, finding.replacement)
+    targets.set(finding.pkg, finding.nativeGlobal)
   }
   if (!targets.size) return plan
 
@@ -125,7 +122,7 @@ export async function planPolyfillFix(root: string, report: Report): Promise<Fix
       const pkg = packageOf(site.source)
       if (!pkg || !targets.has(pkg)) continue
 
-      const reason = decide(site, facts, targets.get(pkg) ?? '')
+      const reason = decide(site, facts, targets.get(pkg))
       if (reason) {
         plan.kept.push({ file, line: site.line, pkg, reason })
         continue

@@ -61,9 +61,16 @@ describe('polyfill codemod — what it refuses to touch', () => {
 
   const keptFor = (pkg: string) => plan.kept.find((k) => k.pkg === pkg)
 
-  it('leaves a binding that is genuinely used', () => {
-    expect(keptFor('dialog-polyfill')?.reason).toContain('`dialogPolyfill` is used')
+  // `dialogPolyfill.registerDialog()` has no global to fall back on, so the
+  // analyser now stops at CHECK and the codemod never gets a chance to touch it.
+  it('never sees a package whose binding has no native global', async () => {
+    const report = await analyze(FIXABLE, { measure: false })
+    const dialog = report.findings.find((f) => f.pkg === 'dialog-polyfill')
+
+    expect(dialog?.verdict).toBe('check')
+    expect(dialog?.note).toContain('swap the call sites first')
     expect(plan.contents.has('src/modal.js')).toBe(false)
+    expect(plan.removals.some((r) => r.pkg === 'dialog-polyfill')).toBe(false)
   })
 
   // `if (!('IntersectionObserver' in window)) await import('intersection-observer')`
@@ -153,7 +160,8 @@ describe('renderPlan', () => {
     const output = renderPlan(await planFor(FIXABLE), false)
 
     expect(output).toContain('Left alone:')
-    expect(output).toContain('dialog-polyfill')
+    expect(output).toContain('intersection-observer')
+    expect(output).toContain('nested in a conditional')
   })
 
   it('explains the scope when there is nothing to remove', async () => {

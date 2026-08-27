@@ -49,41 +49,68 @@ describe('rule wiring', () => {
 })
 
 describe('floating-ui', () => {
-  it('drops when only placement is used', () => {
-    const result = inspect('floating-ui', '@floating-ui/react', usageOf({
-      'Tooltip.tsx': `useFloating({ placement: 'top', middleware: [offset(8), flip(), shift()] })`,
-    }))
+  // A DROP has to be established, not merely un-contradicted: the imports say
+  // exactly which parts of the API are in play.
+  it('drops only when every import is something CSS replaced', () => {
+    const result = inspect('floating-ui', '@floating-ui/react', usageOf(
+      { 'Tooltip.tsx': `useFloating({ placement: 'top', middleware: [offset(8), flip(), shift()] })` },
+      ['useFloating', 'offset', 'flip', 'shift'],
+    ))
     expect(result?.verdict).toBe('drop')
   })
 
   it.each([
-    ['size() middleware', `useFloating({ middleware: [size({ apply() {} })] })`],
+    ['interaction hooks', ['useFloating', 'useInteractions', 'useDismiss']],
+    ['focus management', ['useFloating', 'FloatingFocusManager']],
+    ['size middleware', ['useFloating', 'size']],
+    ['autoPlacement', ['useFloating', 'autoPlacement']],
+  ])('stops short of drop when it also imports %s', (_label, specifiers) => {
+    const result = inspect('floating-ui', '@floating-ui/react', usageOf(
+      { 'a.tsx': `useFloating({ placement: 'top' })` },
+      specifiers,
+    ))
+    expect(result?.verdict).toBe('check')
+  })
+
+  it.each([
     ['virtual element', `const ref = { getBoundingClientRect: () => rect }`],
     ['autoUpdate', `autoUpdate(reference, floating, update)`],
   ])('flags %s for review when other files could still move', (_label, source) => {
-    const result = inspect('floating-ui', '@floating-ui/react', usageOf({
-      'a.tsx': source,
-      'b.tsx': `useFloating({ placement: 'top' })`,
-    }))
+    const result = inspect('floating-ui', '@floating-ui/react', usageOf(
+      { 'a.tsx': source, 'b.tsx': `useFloating({ placement: 'top' })` },
+      ['useFloating'],
+    ))
     expect(result?.verdict).toBe('check')
     expect(result?.sites).toEqual(['a.tsx'])
   })
 
   // Advice nobody can act on is noise, and noise is how a linter loses its reader.
   it('says nothing when every usage is beyond CSS', () => {
-    const result = inspect('floating-ui', '@floating-ui/react', usageOf({
-      'a.tsx': `useFloating({ middleware: [size({ apply() {} })] })`,
-    }))
+    const result = inspect('floating-ui', '@floating-ui/react', usageOf(
+      { 'a.tsx': `autoUpdate(reference, floating, update)` },
+      ['useFloating'],
+    ))
     expect(result).toBeNull()
   })
 })
 
 describe('enter-exit', () => {
-  it('drops when only enter/exit transitions are used', () => {
+  // The whole API arrives through one `motion` import, so nothing distinguishes a
+  // fade from `animate={{ x: 100 }}`. Never DROP on the absence of evidence.
+  it('never drops, even when nothing suspicious is found', () => {
     const result = inspect('enter-exit', 'framer-motion', usageOf({
       'Fade.tsx': `<AnimatePresence><motion.div initial={{ opacity: 0 }} exit={{ opacity: 0 }} /></AnimatePresence>`,
     }))
-    expect(result?.verdict).toBe('drop')
+    expect(result?.verdict).toBe('check')
+  })
+
+  it('catches gesture props the old denylist missed', () => {
+    const result = inspect('enter-exit', 'framer-motion', usageOf({
+      'a.tsx': `<motion.button whileHover={{ scale: 1.1 }} />`,
+      'Fade.tsx': `<motion.div exit={{ opacity: 0 }} />`,
+    }))
+    expect(result?.verdict).toBe('check')
+    expect(result?.note).toContain('gesture')
   })
 
   it.each([
@@ -132,5 +159,34 @@ describe('dialog', () => {
   it('tells helper packages they are covered by <dialog> itself', () => {
     const result = inspect('dialog', 'focus-trap-react', usageOf({ 'a.tsx': '' }))
     expect(result?.note).toContain('focus trapping')
+  })
+})
+
+describe('polyfills — bindings and packages that cannot be judged', () => {
+  // Deleting the import leaves `fetch` resolving to the global of the same name.
+  it('drops when the binding matches the native global', () => {
+    const result = inspect('polyfills', 'unfetch', usageOf({ 'a.js': `fetch(url)` }, ['fetch']))
+    expect(result?.verdict).toBe('drop')
+  })
+
+  // `dialogPolyfill.registerDialog()` has nothing to fall back on.
+  it('stops at check when a bound name has no global to inherit', () => {
+    const result = inspect('polyfills', 'dialog-polyfill', usageOf({ 'a.js': '' }, ['dialogPolyfill']))
+    expect(result?.verdict).toBe('check')
+    expect(result?.note).toContain('swap the call sites first')
+  })
+
+  // core-js-pure is imported per feature, so the package name says nothing about
+  // which features are actually in play.
+  it('refuses to judge a package that is imported feature by feature', () => {
+    const result = inspect('polyfills', 'core-js-pure', usageOf({ 'a.js': '' }, ['structuredClone']))
+    expect(result?.verdict).toBe('check')
+    expect(result?.note).toContain('cannot be judged')
+  })
+
+  it('refuses to judge a polyfill that also serves the server runtime', () => {
+    const result = inspect('polyfills', 'isomorphic-fetch', usageOf({ 'a.js': '' }))
+    expect(result?.verdict).toBe('check')
+    expect(result?.note).toContain('Node')
   })
 })

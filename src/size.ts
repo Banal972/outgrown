@@ -27,9 +27,13 @@ export async function hasEsbuild(): Promise<boolean> {
 }
 
 /**
- * Measure what the package actually costs in a bundle: bundle it, minify, gzip.
- * Estimates would undermine the one number this tool is built to report, so when
- * measurement is unavailable we fall back to install size and say so.
+ * Measure what the package costs in a bundle: bundle it, minify, gzip.
+ *
+ * This is the *whole* package. Assigning every export to a global defeats tree
+ * shaking on purpose, because the alternative — guessing which exports survive in
+ * someone else's build — would be a smaller number that is also a fiction. So the
+ * result is an upper bound, and everything downstream says so rather than
+ * presenting it as the saving.
  */
 export async function measure(pkg: string, root: string): Promise<Size> {
   const installed = join(root, 'node_modules', pkg)

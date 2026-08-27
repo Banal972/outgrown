@@ -3,15 +3,24 @@ import type { Rule } from '../types.js'
 /**
  * Carrying a whole animation library for a fade in and out.
  * `@starting-style` plus `transition-behavior: allow-discrete` covers that in CSS.
+ *
+ * This rule never returns DROP, and that is deliberate. The whole API arrives
+ * through one import — `motion` — so nothing about the imports distinguishes
+ * `<motion.div exit={{ opacity: 0 }} />` from `<motion.div animate={{ x: 100 }} />`
+ * or `whileHover`. The most that can be established is the absence of the
+ * patterns below, and absence of evidence is not evidence: a DROP here would be
+ * a guess dressed as a verdict.
  */
 const BEYOND_CSS: [RegExp, string][] = [
   [/\blayoutId\b/, 'layoutId (shared element transition)'],
   [/\blayout\s*(=\{?true|\}|\s|>)/, 'layout animation'],
   [/\bdrag\b/, 'drag gestures'],
+  [/\bwhile(Hover|Tap|Focus|Drag|InView)\b/, 'gesture and viewport states'],
   [/useScroll|useTransform|useSpring|useMotionValue|useMotionTemplate/, 'motion values / scroll linkage'],
-  [/\bvariants\b|\bstagger\b/, 'variants and stagger'],
+  [/\bvariants\b|\bstagger\b/, 'variants · stagger'],
   [/useAnimate|useAnimation\b/, 'imperative animation control'],
   [/\bReorder\b/, 'Reorder component'],
+  [/\bpathLength\b|\btransformTemplate\b/, 'SVG path and transform templates'],
 ]
 
 const rule: Rule = {
@@ -35,7 +44,10 @@ const rule: Rule = {
     }
 
     if (!found.size) {
-      return { verdict: 'drop', note: 'Only enter and exit transitions are used. Two lines of CSS replace this.' }
+      return {
+        verdict: 'check',
+        note: 'CSS covers enter and exit transitions now. If that is all this does here, two lines replace it.',
+      }
     }
 
     const blocked = new Set([...found.values()].flat())

@@ -52,7 +52,12 @@ Which also means verdicts change over time without you touching a line of code. 
 | **CHECK** | Supported, but some usage goes beyond CSS (`layoutId`, virtual anchors) — the files are named |
 | **NOT YET** | A target falls short. Says which browser and by how many versions |
 
-Sizes are measured, not estimated: the package is bundled with esbuild, minified and gzipped.
+Sizes are measured rather than estimated — the package is bundled with esbuild,
+minified and gzipped — but they measure the **whole package**, so treat them as an
+upper bound. If your build already tree-shakes part of it away, your real saving is
+smaller. Guessing at which exports survive in someone else's bundle would produce a
+smaller number that is also a fiction, so the number stays honest and the label
+says what it is.
 
 ## If your project has no browserslist
 
@@ -293,7 +298,7 @@ analyser produces today — it exists to catch the AST rewrite breaking them.
 ## Known limits
 
 - Imports are matched with regexes. Dynamic paths and tsconfig aliases are missed; `outgrown fix` uses a real parser, the report does not
-- Sizes are per-package. After tree shaking your real saving may be smaller
+- Sizes are whole-package upper bounds, not your build's actual saving
 - Only the seven Baseline core browsers are judged. Everything else (samsung, op_mob, …) is excluded and reported
 - `fix` covers the `polyfills` rule only. The other four still need hands
 

@@ -102,6 +102,17 @@ describe('data source', () => {
   })
 })
 
+describe('size reporting', () => {
+  // The number is the whole package, not what this build would actually save.
+  it('labels the total as an upper bound', async () => {
+    const output = render(await analyze(join(FIXTURES, 'fixable'), { measure: true }))
+
+    if (!output.includes('gzip if all of those go')) return // esbuild not installed
+    expect(output).toContain('Up to')
+    expect(output).toContain('upper bound')
+  })
+})
+
 describe('coverage disclosure', () => {
   it('counts the rules and packages that were actually checked', async () => {
     const report = await analyze(APP, { measure: false })

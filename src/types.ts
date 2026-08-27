@@ -99,6 +99,8 @@ export interface Rule {
   requirementsFor?: (pkg: string) => Requirement[]
   /** Per-package documentation link, when one rule spans many different APIs. */
   docsFor?: (pkg: string) => string | undefined
+  /** The global that takes over once the import goes, when there is one. */
+  nativeGlobalFor?: (pkg: string) => string | undefined
   replacement?: string
   replacementFor?: (pkg: string) => string
   /** Returns null when the package is doing work the platform still cannot do. */
@@ -121,6 +123,8 @@ export interface Finding {
   note: string
   sites?: string[]
   replacement: string
+  /** The global the codemod can safely leave a binding resolving to. */
+  nativeGlobal?: string
   docs: string
   files: string[]
   imports: string[]

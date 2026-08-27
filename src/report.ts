@@ -116,13 +116,16 @@ export function render({ targets, project, data, coverage, assumed, findings }: 
   }
   write(`drop ${pc.bold(counts.drop)} · check ${counts.check} · not yet ${counts.notYet}`)
 
-  if (savedGzip > 0) write(pc.green(pc.bold(`Delete now to save ${kb(savedGzip)} (gzip)`)))
+  if (savedGzip > 0) {
+    write(pc.green(pc.bold(`Up to ${kb(savedGzip)} gzip if all of those go`)))
+    write(pc.dim('  Sizes are whole packages — an upper bound. Tree shaking may already drop part of it.'))
+  }
 
   // What raising the floor would buy — the call stays with the reader.
   const locked = findings
     .filter((f) => f.verdict === 'not-yet' && f.size?.gzip)
     .reduce((sum, f) => sum + (f.size?.gzip ?? 0), 0)
-  if (locked > 0) write(pc.dim(`Raising your targets would unlock another ${kb(locked)}`))
+  if (locked > 0) write(pc.dim(`Raising your targets would put another ${kb(locked)} in reach`))
 
   write()
   write(pc.dim(scope))
