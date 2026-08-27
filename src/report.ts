@@ -11,10 +11,10 @@ const BADGE: Record<Verdict, () => string> = {
 const SOURCE_LABEL = {
   override: '--targets',
   project: 'project config',
-  default: 'defaults',
+  assumed: 'assumed',
 } as const
 
-export function render({ targets, project, data, coverage, assumed, findings }: Report): string {
+export function render({ targets, project, data, coverage, assumed, skipped, nodeSignals, findings }: Report): string {
   const lines: string[] = []
   const write = (line = '') => lines.push(line)
 
@@ -43,12 +43,11 @@ export function render({ targets, project, data, coverage, assumed, findings }: 
   // before the verdicts, not after.
   if (assumed) {
     write()
-    write(pc.yellow('This project has no browserslist, so these are browserslist\'s own defaults'))
-    write(
-      assumed.oldest
-        ? pc.yellow(`— still carrying ${pc.bold(assumed.oldest)}. That is a guess, not your policy.`)
-        : pc.yellow('— a guess, not your policy.'),
-    )
+    write(pc.yellow(`This project has no browserslist, so "${assumed.query}" stood in for one.`))
+    write(pc.yellow('That is an assumption, not your policy.'))
+    if (nodeSignals.length) {
+      write(pc.yellow(`It also imports ${nodeSignals.join(', ')} — if this runs on Node, browser targets do not apply at all.`))
+    }
     if (assumed.alternatives.length) {
       write()
       write(pc.dim('  Pick a policy and the verdicts change with it:'))
@@ -62,6 +61,14 @@ export function render({ targets, project, data, coverage, assumed, findings }: 
     }
   }
 
+  // A workspace root has almost no source of its own, so a clean report there
+  // says nothing about the packages underneath it.
+  const workspaceNote = skipped.length
+    ? `${skipped.length} nested package${skipped.length === 1 ? '' : 's'} not scanned` +
+      ` (${skipped.slice(0, 3).join(', ')}${skipped.length > 3 ? ', …' : ''})` +
+      ' — run outgrown inside one, or pass --workspaces'
+    : ''
+
   // Two things a reader can get wrong on their own: assuming a clean report means
   // a clean project, and treating a verdict as a decision. Say both out loud.
   const scope =
@@ -72,6 +79,7 @@ export function render({ targets, project, data, coverage, assumed, findings }: 
   if (!findings.length) {
     write()
     write(pc.green('Nothing to drop.'))
+    if (workspaceNote) write(pc.yellow(workspaceNote))
     write(pc.dim(`${scope}.`))
     write(pc.dim('That is not the same as your dependencies being clean.'))
     write()
@@ -126,6 +134,7 @@ export function render({ targets, project, data, coverage, assumed, findings }: 
   if (locked > 0) write(pc.dim(`Raising your targets would put another ${kb(locked)} in reach`))
 
   write()
+  if (workspaceNote) write(pc.yellow(workspaceNote))
   write(pc.dim(scope))
   write(pc.dim(advisory))
 

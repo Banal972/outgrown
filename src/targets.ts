@@ -32,8 +32,20 @@ function lowestVersion(raw: string): string | null {
  * Baseline core browser. Non-core browsers (samsung, op_mob, ie, …) are left
  * out of the judgement — and reported, never silently dropped.
  */
+/**
+ * What to judge against when the project says nothing.
+ *
+ * browserslist' own defaults are market-share based, so they carry Opera Mini and
+ * KaiOS — browsers web-features cannot judge, which would leave every verdict
+ * capped and the report empty. Baseline's conservative line is an assumption too,
+ * but a stated one that produces an answer.
+ */
+export const ASSUMED_QUERY = 'baseline widely available'
+
 export function resolveTargets(cwd: string, override?: string): Targets {
-  const raw = browserslist(override, { path: cwd })
+  const configured = Boolean(override) || Boolean(browserslist.findConfig(cwd))
+  const query = override ?? (configured ? undefined : ASSUMED_QUERY)
+  const raw = browserslist(query, { path: cwd })
 
   const minimums: Minimums = {}
   const ignored = new Set<string>()
@@ -82,7 +94,8 @@ export function resolveTargets(cwd: string, override?: string): Targets {
     derivative: [...derivative],
     unknownVersions,
     aheadOfStable,
-    source: override ? 'override' : browserslist.findConfig(cwd) ? 'project' : 'default',
+    source: override ? 'override' : configured ? 'project' : 'assumed',
+    ...(configured ? {} : { assumedQuery: ASSUMED_QUERY }),
     raw,
   }
 }

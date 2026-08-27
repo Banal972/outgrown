@@ -1,0 +1,2 @@
+{ "name": "fixture-nodeish", "private": true, "engines": { "node": ">=20" },
+  "dependencies": { "escape-string-regexp": "^5" } }

@@ -1,0 +1,1 @@
+{ "name": "one", "browserslist": ["chrome >= 145", "firefox >= 152", "safari >= 26.2"], "dependencies": { "whatwg-fetch": "^3" } }

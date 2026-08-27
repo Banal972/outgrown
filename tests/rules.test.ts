@@ -15,7 +15,7 @@ function usageOf(
   }
 }
 
-const EMPTY_PROJECT: Project = { root: '/', fileCount: 0, usage: new Map() }
+const EMPTY_PROJECT: Project = { root: '/', fileCount: 0, usage: new Map(), skipped: [] }
 
 function ruleById(id: string): Rule {
   const rule = rules.find((r) => r.id === id)

@@ -15,6 +15,7 @@ Options
   --targets <query>   judge against this browserslist query instead of the project's
   --json              machine-readable output
   --no-measure        skip bundle measurement (faster)
+  --workspaces        also scan nested packages, each as its own project
   --write             fix only: actually edit the files
   -h, --help          show this help
 
@@ -22,6 +23,7 @@ Examples
   outgrown
   outgrown packages/web
   outgrown --targets "chrome >= 130, firefox >= 132, safari >= 18"
+  outgrown --workspaces
   outgrown fix --write
 `
 
@@ -53,7 +55,42 @@ async function main(): Promise<number> {
     })
 
     if (!fixing) {
-      console.log(args.includes('--json') ? JSON.stringify(report, null, 2) : render(report))
+      const json = args.includes('--json')
+
+      // A workspace root has almost no source of its own. Each package carries
+      // its own browserslist and its own dependencies, so they are judged
+      // separately rather than merged into one misleading verdict.
+      if (args.includes('--workspaces') && report.skipped.length) {
+        const reports = [{ path: '.', report }]
+        for (const nested of report.skipped) {
+          try {
+            reports.push({
+              path: nested,
+              report: await analyze(join(root, nested), {
+                measure: !args.includes('--no-measure'),
+                ...(targetsQuery ? { targets: targetsQuery } : {}),
+              }),
+            })
+          } catch (error) {
+            console.error(`outgrown: ${nested}: ${error instanceof Error ? error.message : String(error)}`)
+          }
+        }
+
+        if (json) {
+          console.log(JSON.stringify(reports, null, 2))
+        } else {
+          for (const entry of reports) {
+            if (entry.path !== '.' && !entry.report.findings.length) continue
+            console.log(`\n${'═'.repeat(20)} ${entry.path} ${'═'.repeat(20)}`)
+            console.log(render(entry.report))
+          }
+          const silent = reports.filter((e) => e.path !== '.' && !e.report.findings.length).length
+          if (silent) console.log(`(${silent} nested package${silent === 1 ? '' : 's'} had nothing to report)`)
+        }
+        return 0
+      }
+
+      console.log(json ? JSON.stringify(report, null, 2) : render(report))
       return 0
     }
 

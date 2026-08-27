@@ -107,3 +107,13 @@ describe('require and dynamic import', () => {
     expect(project.usage.get('intersection-observer')?.opaque).toBe(true)
   })
 })
+
+describe('a call whose result is used', () => {
+  const project = scanProject(join(FIXTURES, 'consumed'))
+
+  // `require('raf').polyfill()` starts a statement, so looking only backwards
+  // calls it a side effect — while the result is very much in use.
+  it('is not mistaken for a side-effect import', () => {
+    expect(project.usage.get('raf')?.opaque).toBe(true)
+  })
+})

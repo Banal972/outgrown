@@ -147,24 +147,25 @@ describe('coverage disclosure', () => {
 describe('projects with no browserslist', () => {
   const NO_CONFIG = join(FIXTURES, 'no-browserslist')
 
-  it('falls back to browserslist defaults and says so', async () => {
+  it('stands a stated policy in for the browserslist it does not have', async () => {
     const report = await analyze(NO_CONFIG, { measure: false })
-    expect(report.targets.source).toBe('default')
-    expect(report.assumed).toBeDefined()
+    expect(report.targets.source).toBe('assumed')
+    expect(report.assumed?.query).toBe('baseline widely available')
   })
 
-  // browserslist defaults are market-share based, so they still carry chrome 109
-  // — the last version for Windows 7/8. Left unsaid, every verdict rests on it.
-  it('names the target furthest behind its own latest release', async () => {
+  // browserslist' own defaults are market-share based: they carry op_mini and
+  // kaios, which web-features cannot judge, so every verdict would be capped.
+  it('does not fall back to a query full of unjudgeable browsers', async () => {
     const report = await analyze(NO_CONFIG, { measure: false })
-    expect(report.assumed?.oldest).toMatch(/^chrome \d+/)
+    expect(report.targets.noData).toEqual([])
+    expect(report.targets.derivative).toEqual([])
   })
 
   it('offers both ends of the policy trade, with what each opens', async () => {
     const report = await analyze(NO_CONFIG, { measure: false })
     const queries = report.assumed?.alternatives.map((a) => a.query)
 
-    expect(queries).toEqual(['baseline widely available', 'baseline newly available'])
+    expect(queries).toEqual(['baseline newly available', 'defaults'])
     for (const alternative of report.assumed?.alternatives ?? []) {
       expect(alternative.floor).toContain('chrome')
       expect(alternative.wouldOpen).toBeGreaterThanOrEqual(0)
@@ -174,7 +175,7 @@ describe('projects with no browserslist', () => {
   it('warns before the verdicts, not after', async () => {
     const output = render(await analyze(NO_CONFIG, { measure: false }))
     expect(output).toContain('This project has no browserslist')
-    expect(output).toContain('a guess, not your policy')
+    expect(output).toContain('an assumption, not your policy')
 
     // The arrow only appears inside a finding, so it marks where the verdicts start.
     expect(output.indexOf('no browserslist')).toBeLessThan(output.indexOf('→'))
@@ -240,5 +241,45 @@ describe('unjudgeable targets', () => {
     const output = render(await analyze(R1, { measure: false, targets: 'ie 11, chrome 145, firefox 152, safari 26.2' }))
     expect(output).toContain('unverified for ie 11')
     expect(output).toContain('nothing here can be a DROP')
+  })
+})
+
+describe('projects the browser targets may not apply to', () => {
+  it('assumes a Baseline policy rather than browserslist defaults', async () => {
+    const report = await analyze(join(FIXTURES, 'nodeish'), { measure: false })
+
+    expect(report.targets.source).toBe('assumed')
+    expect(report.targets.assumedQuery).toBe('baseline widely available')
+    // browserslist' own defaults carry op_mini and kaios, which would cap
+    // every verdict and leave the report empty.
+    expect(report.targets.noData).toEqual([])
+  })
+
+  it('says so when the source reads like it runs on Node', async () => {
+    const output = render(await analyze(join(FIXTURES, 'nodeish'), { measure: false }))
+    expect(output).toContain('if this runs on Node, browser targets do not apply')
+  })
+})
+
+describe('workspaces', () => {
+  const WORKSPACE = join(FIXTURES, 'workspace')
+
+  // A clean report at a workspace root says nothing about the packages under it.
+  it('reports the packages the scan stopped at', async () => {
+    const report = await analyze(WORKSPACE, { measure: false })
+
+    expect(report.skipped.sort()).toEqual(['packages/one', 'packages/two'])
+    expect(report.findings).toHaveLength(0)
+  })
+
+  it('says they were not scanned rather than implying a clean sweep', async () => {
+    const output = render(await analyze(WORKSPACE, { measure: false }))
+    expect(output).toContain('nested packages not scanned')
+    expect(output).toContain('--workspaces')
+  })
+
+  it('finds what the root could not, once pointed at a package', async () => {
+    const report = await analyze(join(WORKSPACE, 'packages/one'), { measure: false })
+    expect(report.findings.some((f) => f.pkg === 'whatwg-fetch' && f.verdict === 'drop')).toBe(true)
   })
 })

@@ -1,8 +1,8 @@
 import { rules } from './rules/index.js'
-import { readManifest, scanProject } from './scan.js'
+import { nodeSignalsIn, readManifest, scanProject } from './scan.js'
 import { measure } from './size.js'
 import { createResolver, evaluate } from './support.js'
-import { resolveTargets } from './targets.js'
+import { ASSUMED_QUERY, resolveTargets } from './targets.js'
 import type { AnalyzeOptions, FeatureResolver, Finding, Report, Support, Targets, Verdict } from './types.js'
 
 export type * from './types.js'
@@ -101,7 +101,7 @@ export async function analyze(root: string, options: AnalyzeOptions = {}): Promi
   findings.sort((a, b) => ORDER[a.verdict] - ORDER[b.verdict] || a.pkg.localeCompare(b.pkg))
 
   const assumed =
-    targets.source === 'default' ? measureAssumption(root, findings, targets, resolver) : undefined
+    targets.source === 'assumed' ? measureAssumption(root, findings, resolver) : undefined
 
   return {
     targets,
@@ -112,6 +112,9 @@ export async function analyze(root: string, options: AnalyzeOptions = {}): Promi
       rules: rules.length,
       packages: new Set(rules.flatMap((rule) => rule.packages)).size,
     },
+    skipped: project.skipped,
+    // Only worth saying when nothing declared browser targets in the first place.
+    nodeSignals: targets.source === 'assumed' ? nodeSignalsIn(project) : [],
     findings,
   }
 }
@@ -123,7 +126,7 @@ export async function analyze(root: string, options: AnalyzeOptions = {}): Promi
  * than recommending a number: "widely available" is 30+ months of support in every
  * core browser, "newly available" is however new the slowest browser is today.
  */
-const ALTERNATIVES = ['baseline widely available', 'baseline newly available'] as const
+const ALTERNATIVES = ['baseline newly available', 'defaults'] as const
 
 /**
  * Without a browserslist, the fallback is browserslist's own defaults — which
@@ -131,29 +134,8 @@ const ALTERNATIVES = ['baseline widely available', 'baseline newly available'] a
  * blocked findings against a real modern target turns that from an invisible
  * assumption into a number.
  */
-function measureAssumption(
-  root: string,
-  findings: Finding[],
-  targets: Targets,
-  resolver: FeatureResolver,
-) {
+function measureAssumption(root: string, findings: Finding[], resolver: FeatureResolver) {
   const blocked = findings.filter((finding) => finding.verdict === 'not-yet')
-
-  // "Oldest" only means something within one browser — chrome 109 and safari 18
-  // are not comparable numbers. Measure each against its own latest release and
-  // take the one furthest behind.
-  const latest = resolveTargets(root, 'last 1 version').minimums
-  let oldest = ''
-  let widestGap = 0
-  for (const [browser, version] of Object.entries(targets.minimums)) {
-    const current = latest[browser as keyof typeof latest]
-    if (!current) continue
-    const gap = Number(current.split('.')[0]) - Number(version.split('.')[0])
-    if (gap > widestGap) {
-      widestGap = gap
-      oldest = `${browser} ${version}`
-    }
-  }
 
   const alternatives = []
 
@@ -180,7 +162,7 @@ function measureAssumption(
     alternatives.push({ query, floor, wouldOpen })
   }
 
-  return { oldest, alternatives }
+  return { query: ASSUMED_QUERY, alternatives }
 }
 
 /**

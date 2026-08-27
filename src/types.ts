@@ -23,7 +23,9 @@ export interface Targets {
   aheadOfStable: string[]
   /** Entries whose version could not be parsed (e.g. "safari TP"). */
   unknownVersions: string[]
-  source: 'override' | 'project' | 'default'
+  source: 'override' | 'project' | 'assumed'
+  /** The query used when the project had none of its own. */
+  assumedQuery?: string
   raw: string[]
 }
 
@@ -92,6 +94,13 @@ export interface Project {
   root: string
   fileCount: number
   usage: Map<string, PackageUsage>
+  /**
+   * Directories the walk stopped at because they carry their own package.json.
+   * In a workspace these are the project — reporting a clean sweep of the root
+   * while silently skipping a hundred packages would be the same lie as any
+   * other silent omission.
+   */
+  skipped: string[]
 }
 
 export type Verdict = 'drop' | 'check' | 'not-yet'
@@ -153,13 +162,20 @@ export interface Report {
   data: { source: FeatureResolver['source']; version: string }
   /** What was looked for. A clean report means nothing outside this was checked. */
   coverage: { rules: number; packages: number }
+  /** Nested packages the scan stopped at, relative to the root. */
+  skipped: string[]
+  /**
+   * Node builtins seen in the source of a project that declares no browserslist.
+   * Browser targets may simply not apply to it.
+   */
+  nodeSignals: string[]
   /**
    * Set only when the project has no browserslist of its own: what a real target
    * would open up, so the fallback is visibly a guess rather than a policy.
    */
   assumed?: {
-    /** The target furthest behind its own latest release — usually the giveaway. */
-    oldest: string
+    /** The query that stood in for a browserslist the project does not have. */
+    query: string
     alternatives: { query: string; floor: string; wouldOpen: number }[]
   }
   findings: Finding[]

@@ -39,15 +39,25 @@ const PATTERNS: Pattern[] = [
   { re: /export\s+(\*(?:\s+as\s+[\w$]+)?|\{[^}]*\})\s+from\s*['"]([^'"]+)['"]/g, clause: 1, source: 2, form: 'binds' },
 ]
 
-/** A call at statement level binds nothing; anywhere else it might. */
-function isStatementLevel(text: string, at: number): boolean {
-  let index = at - 1
-  while (index >= 0 && /\s/.test(text[index] ?? '')) index--
-  if (index < 0) return true
-  return [';', '{', '}', ')'].includes(text[index] ?? '')
+/**
+ * Whether a bare require/import call is a side effect and nothing more.
+ *
+ * Both sides matter. `require('raf').polyfill()` starts a statement, so looking
+ * only backwards calls it a side effect — while the result is very much in use.
+ */
+function isSideEffectOnly(text: string, start: number, end: number): boolean {
+  let before = start - 1
+  while (before >= 0 && /\s/.test(text[before] ?? '')) before--
+  const precededByStatement = before < 0 || [';', '{', '}', ')'].includes(text[before] ?? '')
+
+  let after = end
+  while (after < text.length && /\s/.test(text[after] ?? '')) after++
+  const consumed = ['.', '[', '(', '?'].includes(text[after] ?? '')
+
+  return precededByStatement && !consumed
 }
 
-function walk(dir: string, out: string[]): string[] {
+function walk(dir: string, out: string[], skipped: string[]): string[] {
   let entries
   try {
     entries = readdirSync(dir, { withFileTypes: true })
@@ -62,8 +72,11 @@ function walk(dir: string, out: string[]): string[] {
     if (entry.isDirectory()) {
       if (SKIP_DIRS.has(entry.name)) continue
       // A nested package.json means a separate project (example, fixture, workspace).
-      if (existsSync(join(full, 'package.json'))) continue
-      walk(full, out)
+      if (existsSync(join(full, 'package.json'))) {
+        skipped.push(full)
+        continue
+      }
+      walk(full, out, skipped)
     } else if (EXTENSIONS.has(extname(entry.name))) {
       out.push(full)
     }
@@ -114,7 +127,8 @@ function packageOf(source: string): string | null {
 
 /** Walk the source tree and record which package is used where, and as what. */
 export function scanProject(root: string): Project {
-  const files = walk(root, [])
+  const skipped: string[] = []
+  const files = walk(root, [], skipped)
   const usage = new Map<string, PackageUsage>()
 
   for (const file of files) {
@@ -148,7 +162,9 @@ export function scanProject(root: string): Project {
 
         // A call that is not a statement on its own may be feeding a name we
         // cannot see — `foo(require('x'))`, `await import('x')`.
-        if (form === 'call' && !isStatementLevel(text, match.index)) record.opaque = true
+        if (form === 'call' && !isSideEffectOnly(text, match.index, match.index + match[0].length)) {
+          record.opaque = true
+        }
 
         const rel = relative(root, file)
         let fileUsage = record.files.get(rel)
@@ -165,7 +181,22 @@ export function scanProject(root: string): Project {
     }
   }
 
-  return { root, fileCount: files.length, usage }
+  return { root, fileCount: files.length, usage, skipped: skipped.map((dir) => relative(root, dir)) }
+}
+
+/** Imports that only make sense on a server. */
+const NODE_BUILTINS = new Set([
+  'fs', 'path', 'child_process', 'os', 'http', 'https', 'net', 'worker_threads', 'readline', 'zlib',
+])
+
+/** Which Node builtins a project reaches for, if any. */
+export function nodeSignalsIn(project: Project): string[] {
+  const seen = new Set<string>()
+  for (const pkg of project.usage.keys()) {
+    const bare = pkg.startsWith('node:') ? pkg.slice(5) : pkg
+    if (NODE_BUILTINS.has(bare)) seen.add(bare)
+  }
+  return [...seen].sort()
 }
 
 export interface Manifest {
